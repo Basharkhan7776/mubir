@@ -1,72 +1,46 @@
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
-import { addCollection } from '@/lib/store/slices/inventorySlice';
+import { Input } from '@/components/ui/input';
 import { RootState } from '@/lib/store';
 import { Link, Stack, useRouter } from 'expo-router';
-import { Plus } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, View } from 'react-native';
-import { useDispatch, useSelector } from 'react-redux';
+import { Plus, Search } from 'lucide-react-native';
+import React, { useState, useMemo } from 'react';
+import { FlatList, View, Pressable } from 'react-native';
+import { useSelector } from 'react-redux';
 
 export default function InventoryScreen() {
     const collections = useSelector((state: RootState) => state.inventory.collections);
-    const dispatch = useDispatch();
-    const [newCollectionName, setNewCollectionName] = useState('');
-    const [isAdding, setIsAdding] = useState(false);
     const router = useRouter();
+    const [searchQuery, setSearchQuery] = useState('');
 
-    const handleAddCollection = () => {
-        if (newCollectionName.trim()) {
-            dispatch(addCollection({
-                id: Date.now().toString(),
-                name: newCollectionName.trim(),
-                schema: [ // Default schema for now, or make this dynamic later
-                    { key: 'name', label: 'Name', type: 'text', required: true },
-                    { key: 'quantity', label: 'Quantity', type: 'number', defaultValue: 0 },
-                    { key: 'price', label: 'Price', type: 'currency' }
-                ],
-                data: []
-            }));
-            setNewCollectionName('');
-            setIsAdding(false);
-        }
-    };
+    const filteredCollections = useMemo(() => {
+        if (!searchQuery.trim()) return collections;
+
+        const query = searchQuery.toLowerCase();
+        return collections.filter(collection =>
+            collection.name.toLowerCase().includes(query) ||
+            collection.description?.toLowerCase().includes(query)
+        );
+    }, [collections, searchQuery]);
 
     return (
         <>
-            <Stack.Screen options={{
-                title: 'Inventory', headerRight: () => (
-                    <Button size="icon" variant="ghost" onPress={() => setIsAdding(!isAdding)}>
-                        <Plus size={24} color="black" />
-                    </Button>
-                )
-            }} />
-            <View className="flex-1 p-4 gap-4">
-                {isAdding && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>New Collection</CardTitle>
-                        </CardHeader>
-                        <CardContent className="gap-4">
-                            <Input
-                                placeholder="Collection Name"
-                                value={newCollectionName}
-                                onChangeText={setNewCollectionName}
-                            />
-                        </CardContent>
-                        <CardFooter className="justify-end gap-2">
-                            <Button variant="outline" onPress={() => setIsAdding(false)}>
-                                <Text>Cancel</Text>
-                            </Button>
-                            <Button onPress={handleAddCollection}>
-                                <Text>Create</Text>
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                )}
-
+            <Stack.Screen
+                options={{
+                    title: 'Inventory',
+                    headerShown: true,
+                    headerRight: () => (
+                        <Pressable
+                            onPress={() => router.push('/inventory/schema-builder')}
+                            style={{ padding: 8, marginRight: 8 }}
+                        >
+                            <Plus size={24} color="#000" />
+                        </Pressable>
+                    )
+                }}
+            />
+            <View className="flex-1 p-4">
                 <FlatList
                     data={collections}
                     keyExtractor={(item) => item.id}

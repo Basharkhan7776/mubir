@@ -15,6 +15,7 @@ export default function PartyScreen() {
     const entry = useSelector((state: RootState) =>
         state.ledger.entries.find((e) => e.organization.id === partyId)
     );
+    const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
     const dispatch = useDispatch();
 
     const [amount, setAmount] = useState('');
@@ -48,7 +49,7 @@ export default function PartyScreen() {
 
     return (
         <>
-            <Stack.Screen options={{ title: entry.organization.name }} />
+            <Stack.Screen options={{ title: entry.organization.name, headerShown: true }} />
             <View className="flex-1 p-4 gap-4">
                 <Card>
                     <CardHeader>
@@ -103,7 +104,7 @@ export default function PartyScreen() {
                                     </View>
                                 </View>
                                 <Text className={`font-bold ${item.type === 'CREDIT' ? 'text-red-600' : 'text-green-600'}`}>
-                                    ₹{item.amount}
+                                    {currencySymbol}{item.amount}
                                 </Text>
                             </CardContent>
                         </Card>

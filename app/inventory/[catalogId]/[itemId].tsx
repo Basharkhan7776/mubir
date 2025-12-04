@@ -1,0 +1,191 @@
+import React, { useState } from 'react';
+import { ScrollView, View, Alert, Pressable } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/lib/store';
+import { deleteItem, updateItem } from '@/lib/store/slices/inventorySlice';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Text } from '@/components/ui/text';
+import { Button } from '@/components/ui/button';
+import { Trash2, Edit, X, Check } from 'lucide-react-native';
+import { DynamicFieldRenderer } from '@/components/inventory/DynamicFieldRenderer';
+
+export default function ItemDetailScreen() {
+  const { catalogId, itemId } = useLocalSearchParams<{ catalogId: string; itemId: string }>();
+  const router = useRouter();
+  const dispatch = useDispatch();
+
+  const collection = useSelector((state: RootState) =>
+    state.inventory.collections.find((c) => c.id === catalogId)
+  );
+
+  const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
+
+  const item = collection?.data.find((i) => i.id === itemId);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedValues, setEditedValues] = useState<Record<string, any>>(item?.values || {});
+
+  if (!collection || !item) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text>Item not found</Text>
+      </View>
+    );
+  }
+
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Item',
+      'Are you sure you want to delete this item?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            dispatch(deleteItem({ collectionId: catalogId, itemId }));
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSave = () => {
+    // Validate required fields
+    const isValid = collection.schema.every(field => {
+      if (field.required && !editedValues[field.key]) return false;
+      return true;
+    });
+
+    if (!isValid) {
+      Alert.alert('Error', 'Please fill all required fields');
+      return;
+    }
+
+    dispatch(updateItem({
+      collectionId: catalogId,
+      itemId,
+      updates: editedValues
+    }));
+
+    setIsEditing(false);
+    Alert.alert('Success', 'Item updated successfully');
+  };
+
+  const handleCancel = () => {
+    setEditedValues(item?.values || {});
+    setIsEditing(false);
+  };
+
+  const updateValue = (key: string, value: any) => {
+    setEditedValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const formatValue = (value: any, fieldType: string) => {
+    if (value === null || value === undefined) return 'N/A';
+
+    switch (fieldType) {
+      case 'boolean':
+        return value ? 'Yes' : 'No';
+      case 'date':
+        return new Date(value).toLocaleDateString();
+      case 'currency':
+        return `${currencySymbol}${value}`;
+      default:
+        return value.toString();
+    }
+  };
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Item Details',
+          headerShown: true,
+          headerRight: () => (
+            <Pressable
+              onPress={() => setIsEditing(!isEditing)}
+              style={{ padding: 8, marginRight: 8 }}
+            >
+              {isEditing ? (
+                <X size={24} color="#000" />
+              ) : (
+                <Edit size={22} color="#000" />
+              )}
+            </Pressable>
+          )
+        }}
+      />
+      <ScrollView className="flex-1" contentContainerClassName="p-4 gap-4">
+        {/* Main Info Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {(isEditing ? editedValues : item.values)[collection.schema[0]?.key] || 'Untitled Item'}
+            </CardTitle>
+            <Text className="text-sm text-muted-foreground">
+              Created: {new Date(item.createdAt).toLocaleString()}
+            </Text>
+          </CardHeader>
+        </Card>
+
+        {/* All Fields */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{isEditing ? 'Edit Details' : 'Details'}</CardTitle>
+          </CardHeader>
+          <CardContent className="gap-4">
+            {isEditing ? (
+              // Edit mode: show dynamic field renderers
+              collection.schema.map((field) => (
+                <DynamicFieldRenderer
+                  key={field.key}
+                  field={field}
+                  value={editedValues[field.key] ?? field.defaultValue}
+                  onChange={(value) => updateValue(field.key, value)}
+                />
+              ))
+            ) : (
+              // View mode: show formatted values
+              collection.schema.map((field) => (
+                <View key={field.key} className="gap-1">
+                  <Text className="text-sm font-medium text-muted-foreground">
+                    {field.label}
+                  </Text>
+                  <Text className="text-base">
+                    {formatValue(item.values[field.key], field.type)}
+                  </Text>
+                </View>
+              ))
+            )}
+          </CardContent>
+          {isEditing && (
+            <CardFooter className="flex-row gap-2">
+              <Button variant="outline" className="flex-1" onPress={handleCancel}>
+                <Text>Cancel</Text>
+              </Button>
+              <Button className="flex-1" onPress={handleSave}>
+                <Check size={18} className="text-primary-foreground mr-2" />
+                <Text>Save</Text>
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
+
+        {/* Actions */}
+        {!isEditing && (
+          <Button
+            variant="destructive"
+            onPress={handleDelete}
+            className="flex-row items-center justify-center gap-2"
+          >
+            <Trash2 size={20} className="text-destructive-foreground" />
+            <Text className="text-destructive-foreground">Delete Item</Text>
+          </Button>
+        )}
+      </ScrollView>
+    </>
+  );
+}

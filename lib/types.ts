@@ -1,4 +1,4 @@
-export type SchemaFieldType = 'text' | 'number' | 'select' | 'currency' | 'date';
+export type SchemaFieldType = 'text' | 'number' | 'select' | 'currency' | 'date' | 'boolean';
 
 export type SchemaField = {
   key: string;
@@ -52,6 +52,7 @@ export type AppMeta = {
   appVersion: string;
   exportDate: string;
   userCurrency: string;
+  organizationName: string;
 };
 
 export type DatabaseSchema = {

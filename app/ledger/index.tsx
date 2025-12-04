@@ -7,13 +7,14 @@ import { RootState } from '@/lib/store';
 import { Link, Stack } from 'expo-router';
 import { Plus } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, View, Pressable } from 'react-native';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 
 export default function LedgerScreen() {
     const entries = useSelector((state: RootState) => state.ledger.entries);
+    const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
     const dispatch = useDispatch();
     const [isAdding, setIsAdding] = useState(false);
     const [newName, setNewName] = useState('');
@@ -33,7 +34,7 @@ export default function LedgerScreen() {
                 id: Date.now().toString(),
                 name: newName.trim(),
                 phone: newPhone,
-                // Type is not in Organization schema but was in Party. 
+                // Type is not in Organization schema but was in Party.
                 // Assuming Organization schema is just { id, name, phone, email } for now based on types.ts
                 // If type is needed, we should add it to schema. For now, ignoring type or storing in name/meta if needed.
                 // But wait, the user request showed "organization" object.
@@ -53,13 +54,20 @@ export default function LedgerScreen() {
 
     return (
         <>
-            <Stack.Screen options={{
-                title: 'Ledger (Udhar)', headerRight: () => (
-                    <Button size="icon" variant="ghost" onPress={() => setIsAdding(!isAdding)}>
-                        <Plus size={24} color="black" />
-                    </Button>
-                )
-            }} />
+            <Stack.Screen
+                options={{
+                    title: 'Ledger (Udhar)',
+                    headerShown: true,
+                    headerRight: () => (
+                        <Pressable
+                            onPress={() => setIsAdding(!isAdding)}
+                            style={{ padding: 8, marginRight: 8 }}
+                        >
+                            <Plus size={24} color="#000" />
+                        </Pressable>
+                    )
+                }}
+            />
             <View className="flex-1 p-4 gap-4">
                 {isAdding && (
                     <Card>
@@ -98,7 +106,7 @@ export default function LedgerScreen() {
                     renderItem={({ item }) => {
                         const balance = getBalance(item.transactions);
                         const balanceColor = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-muted-foreground';
-                        const balanceText = balance > 0 ? `You will get ₹${balance}` : balance < 0 ? `You will give ₹${Math.abs(balance)}` : 'Settled';
+                        const balanceText = balance > 0 ? `You will get ${currencySymbol}${balance}` : balance < 0 ? `You will give ${currencySymbol}${Math.abs(balance)}` : 'Settled';
 
                         return (
                             <Link href={`/ledger/${item.organization.id}`} asChild>

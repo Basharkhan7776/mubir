@@ -7,7 +7,8 @@ const INITIAL_DB: DatabaseSchema = {
     meta: {
         appVersion: '1.0.0',
         exportDate: new Date().toISOString(),
-        userCurrency: 'USD',
+        userCurrency: '₹',
+        organizationName: '',
     },
     collections: [],
     ledger: [],
@@ -15,12 +16,21 @@ const INITIAL_DB: DatabaseSchema = {
 
 class JsonDb {
     async init(): Promise<DatabaseSchema> {
-        const fileInfo = await FileSystem.getInfoAsync(DB_FILE);
-        if (!fileInfo.exists) {
-            await this.write(INITIAL_DB);
+        try {
+            console.log('Initializing DB at path:', DB_FILE);
+            const fileInfo = await FileSystem.getInfoAsync(DB_FILE);
+            console.log('File info:', fileInfo);
+            if (!fileInfo.exists) {
+                console.log('DB file does not exist, creating with initial data');
+                await this.write(INITIAL_DB);
+                return INITIAL_DB;
+            }
+            console.log('DB file exists, reading data');
+            return this.read();
+        } catch (error) {
+            console.error('Error in DB init:', error);
             return INITIAL_DB;
         }
-        return this.read();
     }
 
     async read(): Promise<DatabaseSchema> {
