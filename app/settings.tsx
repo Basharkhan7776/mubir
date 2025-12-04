@@ -3,11 +3,12 @@ import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Stack } from 'expo-router';
 import { FileDown, FileUp, Moon, Sun } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import React, { useState } from 'react';
-import { ScrollView, View, Alert } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { updateOrganizationName, updateCurrency, setSettings } from '@/lib/store/slices/settingsSlice';
@@ -29,13 +30,16 @@ export default function SettingsScreen() {
     const settings = useSelector((state: RootState) => state.settings);
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const handleExport = async () => {
         setIsExporting(true);
         const success = await exportData();
         setIsExporting(false);
         if (success) {
-            Alert.alert('Success', 'Data exported successfully');
+            setSuccessMessage('Data exported successfully');
+            setSuccessDialogOpen(true);
         }
     };
 
@@ -49,7 +53,8 @@ export default function SettingsScreen() {
             dispatch(setSettings(data.meta));
             dispatch(setCollections(data.collections));
             dispatch(setLedger(data.ledger));
-            Alert.alert('Success', 'Data imported successfully');
+            setSuccessMessage('Data imported successfully');
+            setSuccessDialogOpen(true);
         }
     };
 
@@ -136,6 +141,25 @@ export default function SettingsScreen() {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Success Dialog */}
+            <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Success</DialogTitle>
+                        <DialogDescription>
+                            {successMessage}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button>
+                                <Text>OK</Text>
+                            </Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

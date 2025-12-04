@@ -40,9 +40,20 @@ export default function InventoryScreen() {
                     )
                 }}
             />
-            <View className="flex-1 p-4">
+            <View className="flex-1 p-4 gap-4">
+                {/* Search Bar */}
+                <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                    <Search size={20} color="#666" />
+                    <Input
+                        placeholder="Search collections..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        className="flex-1 border-0 bg-transparent"
+                    />
+                </View>
+
                 <FlatList
-                    data={collections}
+                    data={filteredCollections}
                     keyExtractor={(item) => item.id}
                     contentContainerClassName="gap-4"
                     renderItem={({ item }) => (

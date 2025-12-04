@@ -5,8 +5,8 @@ import { Text } from '@/components/ui/text';
 import { addOrganization } from '@/lib/store/slices/ledgerSlice';
 import { RootState } from '@/lib/store';
 import { Link, Stack } from 'expo-router';
-import { Plus } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { Plus, Search } from 'lucide-react-native';
+import React, { useState, useMemo } from 'react';
 import { FlatList, View, Pressable } from 'react-native';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,7 @@ export default function LedgerScreen() {
     const [newName, setNewName] = useState('');
     const [newPhone, setNewPhone] = useState('');
     const [newType, setNewType] = useState<'ORG' | 'INDIVIDUAL'>('INDIVIDUAL');
+    const [searchQuery, setSearchQuery] = useState('');
     const insets = useSafeAreaInsets();
     const contentInsets = {
         top: insets.top,
@@ -52,6 +53,17 @@ export default function LedgerScreen() {
         }, 0);
     };
 
+    const filteredEntries = useMemo(() => {
+        if (!searchQuery.trim()) return entries;
+
+        const query = searchQuery.toLowerCase();
+        return entries.filter(entry =>
+            entry.organization.name.toLowerCase().includes(query) ||
+            entry.organization.phone?.toLowerCase().includes(query) ||
+            entry.organization.email?.toLowerCase().includes(query)
+        );
+    }, [entries, searchQuery]);
+
     return (
         <>
             <Stack.Screen
@@ -69,6 +81,17 @@ export default function LedgerScreen() {
                 }}
             />
             <View className="flex-1 p-4 gap-4">
+                {/* Search Bar */}
+                <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                    <Search size={20} color="#666" />
+                    <Input
+                        placeholder="Search organizations..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        className="flex-1 border-0 bg-transparent"
+                    />
+                </View>
+
                 {isAdding && (
                     <Card>
                         <CardHeader>
@@ -100,7 +123,7 @@ export default function LedgerScreen() {
                 )}
 
                 <FlatList
-                    data={entries}
+                    data={filteredEntries}
                     keyExtractor={(item) => item.organization.id}
                     contentContainerClassName="gap-4"
                     renderItem={({ item }) => {

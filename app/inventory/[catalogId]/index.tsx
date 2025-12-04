@@ -1,12 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { addItem, deleteItem } from '@/lib/store/slices/inventorySlice';
 import { RootState } from '@/lib/store';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Plus, Trash2, Settings } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { FlatList, View, Alert, Pressable } from 'react-native';
+import { Plus, Trash2, Settings, Search } from 'lucide-react-native';
+import React, { useState, useMemo } from 'react';
+import { FlatList, View, Pressable } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { DynamicFieldRenderer } from '@/components/inventory/DynamicFieldRenderer';
 
@@ -21,6 +23,9 @@ export default function CatalogScreen() {
 
     const [isAdding, setIsAdding] = useState(false);
     const [newValues, setNewValues] = useState<Record<string, any>>({});
+    const [searchQuery, setSearchQuery] = useState('');
+    const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
 
     if (!collection) {
         return (
@@ -49,13 +54,31 @@ export default function CatalogScreen() {
             setNewValues({});
             setIsAdding(false);
         } else {
-            Alert.alert('Error', 'Please fill all required fields');
+            setErrorMessage('Please fill all required fields');
+            setErrorDialogOpen(true);
         }
     };
 
     const updateValue = (key: string, value: string) => {
         setNewValues(prev => ({ ...prev, [key]: value }));
     };
+
+    const filteredItems = useMemo(() => {
+        if (!searchQuery.trim()) return collection.data;
+
+        const query = searchQuery.toLowerCase();
+        return collection.data.filter(item => {
+            // Search across all field values
+            return collection.schema.some(field => {
+                const value = item.values[field.key];
+                if (value === null || value === undefined) return false;
+
+                // Convert value to string for searching
+                const stringValue = value.toString().toLowerCase();
+                return stringValue.includes(query);
+            });
+        });
+    }, [collection.data, collection.schema, searchQuery]);
 
     return (
         <>
@@ -82,6 +105,17 @@ export default function CatalogScreen() {
                 }}
             />
             <View className="flex-1 p-4 gap-4">
+                {/* Search Bar */}
+                <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                    <Search size={20} color="#666" />
+                    <Input
+                        placeholder="Search items..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        className="flex-1 border-0 bg-transparent"
+                    />
+                </View>
+
                 {isAdding && (
                     <Card>
                         <CardHeader>
@@ -109,7 +143,7 @@ export default function CatalogScreen() {
                 )}
 
                 <FlatList
-                    data={collection.data}
+                    data={filteredItems}
                     keyExtractor={(item) => item.id}
                     contentContainerClassName="gap-4"
                     renderItem={({ item }) => {
@@ -164,6 +198,25 @@ export default function CatalogScreen() {
                         </View>
                     }
                 />
+
+                {/* Error Dialog */}
+                <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Error</DialogTitle>
+                            <DialogDescription>
+                                {errorMessage}
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button>
+                                    <Text>OK</Text>
+                                </Button>
+                            </DialogClose>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </View>
         </>
     );

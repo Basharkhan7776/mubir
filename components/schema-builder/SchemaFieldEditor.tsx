@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View } from 'react-native';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { SchemaField, SchemaFieldType } from '@/lib/types';
 import { Trash2, Plus } from 'lucide-react-native';
 
@@ -26,6 +27,7 @@ const FIELD_TYPES: { value: SchemaFieldType; label: string }[] = [
 
 export function SchemaFieldEditor({ field, onChange, onDelete }: SchemaFieldEditorProps) {
   const [newOption, setNewOption] = useState('');
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
 
   const updateField = (updates: Partial<SchemaField>) => {
     onChange({ ...field, ...updates });
@@ -38,7 +40,7 @@ export function SchemaFieldEditor({ field, onChange, onDelete }: SchemaFieldEdit
         updateField({ options: [...options, newOption.trim()] });
         setNewOption('');
       } else {
-        Alert.alert('Duplicate Option', 'This option already exists');
+        setErrorDialogOpen(true);
       }
     }
   };
@@ -159,6 +161,25 @@ export function SchemaFieldEditor({ field, onChange, onDelete }: SchemaFieldEdit
           </View>
         )}
       </CardContent>
+
+      {/* Error Dialog */}
+      <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicate Option</DialogTitle>
+            <DialogDescription>
+              This option already exists
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button>
+                <Text>OK</Text>
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

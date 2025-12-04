@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Alert, Pressable } from 'react-native';
+import { ScrollView, View, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -7,6 +7,7 @@ import { deleteItem, updateItem } from '@/lib/store/slices/inventorySlice';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Trash2, Edit, X, Check } from 'lucide-react-native';
 import { DynamicFieldRenderer } from '@/components/inventory/DynamicFieldRenderer';
 
@@ -25,6 +26,10 @@ export default function ItemDetailScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, any>>(item?.values || {});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
   if (!collection || !item) {
     return (
@@ -35,21 +40,13 @@ export default function ItemDetailScreen() {
   }
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Item',
-      'Are you sure you want to delete this item?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            dispatch(deleteItem({ collectionId: catalogId, itemId }));
-            router.back();
-          },
-        },
-      ]
-    );
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    dispatch(deleteItem({ collectionId: catalogId, itemId }));
+    setDeleteDialogOpen(false);
+    router.back();
   };
 
   const handleSave = () => {
@@ -60,7 +57,8 @@ export default function ItemDetailScreen() {
     });
 
     if (!isValid) {
-      Alert.alert('Error', 'Please fill all required fields');
+      setErrorMessage('Please fill all required fields');
+      setErrorDialogOpen(true);
       return;
     }
 
@@ -71,7 +69,7 @@ export default function ItemDetailScreen() {
     }));
 
     setIsEditing(false);
-    Alert.alert('Success', 'Item updated successfully');
+    setSuccessDialogOpen(true);
   };
 
   const handleCancel = () => {
@@ -185,6 +183,66 @@ export default function ItemDetailScreen() {
             <Text className="text-destructive-foreground">Delete Item</Text>
           </Button>
         )}
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Item</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this item? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">
+                  <Text>Cancel</Text>
+                </Button>
+              </DialogClose>
+              <Button variant="destructive" onPress={confirmDelete}>
+                <Text className="text-destructive-foreground">Delete</Text>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Error Dialog */}
+        <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Error</DialogTitle>
+              <DialogDescription>
+                {errorMessage}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button>
+                  <Text>OK</Text>
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Success Dialog */}
+        <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Success</DialogTitle>
+              <DialogDescription>
+                Item updated successfully
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button>
+                  <Text>OK</Text>
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </ScrollView>
     </>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Alert } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { SchemaFieldEditor } from '@/components/schema-builder/SchemaFieldEditor';
 import { SchemaField } from '@/lib/types';
 import { Plus } from 'lucide-react-native';
@@ -25,6 +26,11 @@ export default function EditSchemaScreen() {
   const [collectionName, setCollectionName] = useState(collection?.name || '');
   const [description, setDescription] = useState(collection?.description || '');
   const [fields, setFields] = useState<SchemaField[]>(collection?.schema || []);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<number | null>(null);
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
   if (!collection) {
     return (
@@ -51,44 +57,44 @@ export default function EditSchemaScreen() {
   };
 
   const deleteField = (index: number) => {
-    Alert.alert(
-      'Delete Field',
-      'Are you sure? Existing data for this field will be lost.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const newFields = fields.filter((_, i) => i !== index);
-            setFields(newFields);
-          },
-        },
-      ]
-    );
+    setFieldToDelete(index);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteField = () => {
+    if (fieldToDelete !== null) {
+      const newFields = fields.filter((_, i) => i !== fieldToDelete);
+      setFields(newFields);
+      setDeleteDialogOpen(false);
+      setFieldToDelete(null);
+    }
   };
 
   const validateAndSave = () => {
     if (!collectionName.trim()) {
-      Alert.alert('Error', 'Please enter a collection name');
+      setErrorMessage('Please enter a collection name');
+      setErrorDialogOpen(true);
       return;
     }
 
     if (fields.length === 0) {
-      Alert.alert('Error', 'Please add at least one field');
+      setErrorMessage('Please add at least one field');
+      setErrorDialogOpen(true);
       return;
     }
 
     const keys = fields.map((f) => f.key);
     const uniqueKeys = new Set(keys);
     if (keys.length !== uniqueKeys.size) {
-      Alert.alert('Error', 'Field keys must be unique');
+      setErrorMessage('Field keys must be unique');
+      setErrorDialogOpen(true);
       return;
     }
 
     const hasEmptyLabels = fields.some((f) => !f.label.trim());
     if (hasEmptyLabels) {
-      Alert.alert('Error', 'All fields must have labels');
+      setErrorMessage('All fields must have labels');
+      setErrorDialogOpen(true);
       return;
     }
 
@@ -96,7 +102,8 @@ export default function EditSchemaScreen() {
       (f) => f.type === 'select' && (!f.options || f.options.length === 0)
     );
     if (selectFieldsWithoutOptions.length > 0) {
-      Alert.alert('Error', 'Dropdown fields must have at least one option');
+      setErrorMessage('Dropdown fields must have at least one option');
+      setErrorDialogOpen(true);
       return;
     }
 
@@ -113,13 +120,7 @@ export default function EditSchemaScreen() {
     );
 
     dispatch(setCollections(updatedCollections));
-
-    Alert.alert('Success', 'Collection updated successfully', [
-      {
-        text: 'OK',
-        onPress: () => router.back(),
-      },
-    ]);
+    setSuccessDialogOpen(true);
   };
 
   return (
@@ -180,6 +181,66 @@ export default function EditSchemaScreen() {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Delete Field Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Field</DialogTitle>
+            <DialogDescription>
+              Are you sure? Existing data for this field will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">
+                <Text>Cancel</Text>
+              </Button>
+            </DialogClose>
+            <Button variant="destructive" onPress={confirmDeleteField}>
+              <Text className="text-destructive-foreground">Delete</Text>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Error Dialog */}
+      <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+            <DialogDescription>
+              {errorMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button>
+                <Text>OK</Text>
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Dialog */}
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Success</DialogTitle>
+            <DialogDescription>
+              Collection updated successfully
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button onPress={() => router.back()}>
+                <Text>OK</Text>
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
