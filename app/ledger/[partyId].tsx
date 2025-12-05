@@ -6,11 +6,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { addTransaction, updateOrganization, updateTransaction, deleteTransaction } from '@/lib/store/slices/ledgerSlice';
 import { RootState } from '@/lib/store';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { ArrowDownLeft, ArrowUpRight, Search, Edit, X, Check, Trash2 } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Search, Edit, X, Check, Trash2, Printer } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { FlatList, View, Pressable, Platform } from 'react-native';
+import { FlatList, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { generateLedgerPDF } from '@/lib/pdfGenerator';
 
 export default function PartyScreen() {
     const { partyId } = useLocalSearchParams<{ partyId: string }>();
@@ -18,7 +19,9 @@ export default function PartyScreen() {
         state.ledger.entries.find((e) => e.organization.id === partyId)
     );
     const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
+    const orgName = useSelector((state: RootState) => state.settings.organizationName);
     const dispatch = useDispatch();
+    const [isPrintingPDF, setIsPrintingPDF] = useState(false);
 
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
@@ -167,6 +170,25 @@ export default function PartyScreen() {
         }
     };
 
+    const handlePrintPDF = async () => {
+        try {
+            setIsPrintingPDF(true);
+            await generateLedgerPDF(
+                entry.organization,
+                entry.transactions,
+                currencySymbol,
+                orgName || 'Mudir'
+            );
+            setSuccessMessage('PDF generated successfully!');
+            setSuccessDialogOpen(true);
+        } catch (error) {
+            setErrorMessage('Failed to generate PDF. Please try again.');
+            setErrorDialogOpen(true);
+        } finally {
+            setIsPrintingPDF(false);
+        }
+    };
+
     return (
         <>
             <Stack.Screen
@@ -174,16 +196,29 @@ export default function PartyScreen() {
                     title: entry.organization.name,
                     headerShown: true,
                     headerRight: () => (
-                        <Pressable
-                            onPress={() => setIsEditingOrg(!isEditingOrg)}
-                            style={{ padding: 8, marginRight: 8 }}
-                        >
-                            {isEditingOrg ? (
-                                <X size={24} color="#000" />
-                            ) : (
-                                <Edit size={22} color="#000" />
-                            )}
-                        </Pressable>
+                        <View style={{ flexDirection: 'row', marginRight: 8 }}>
+                            <Pressable
+                                onPress={handlePrintPDF}
+                                style={{ padding: 8 }}
+                                disabled={isPrintingPDF}
+                            >
+                                {isPrintingPDF ? (
+                                    <ActivityIndicator size="small" color="#000" />
+                                ) : (
+                                    <Printer size={22} color="#000" />
+                                )}
+                            </Pressable>
+                            <Pressable
+                                onPress={() => setIsEditingOrg(!isEditingOrg)}
+                                style={{ padding: 8 }}
+                            >
+                                {isEditingOrg ? (
+                                    <X size={24} color="#000" />
+                                ) : (
+                                    <Edit size={22} color="#000" />
+                                )}
+                            </Pressable>
+                        </View>
                     )
                 }}
             />

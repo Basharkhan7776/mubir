@@ -9,6 +9,7 @@ import { RootState } from '@/lib/store';
 import { useSelector } from 'react-redux';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Button } from '@/components/ui/button';
+import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 
 interface DynamicFieldRendererProps {
   field: SchemaField;
@@ -67,13 +68,31 @@ export function DynamicFieldRenderer({ field, value, onChange }: DynamicFieldRen
                 {value ? new Date(value).toLocaleDateString() : `Select ${field.label}`}
               </Text>
             </Button>
-            {showDatePicker && (
+            {showDatePicker && Platform.OS !== 'web' && (
+              <Animated.View
+                entering={SlideInDown.duration(300).springify()}
+                exiting={SlideOutDown.duration(200)}
+              >
+                <DateTimePicker
+                  value={value ? new Date(value) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, selectedDate) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (selectedDate) {
+                      onChange(selectedDate.toISOString().split('T')[0]);
+                    }
+                  }}
+                />
+              </Animated.View>
+            )}
+            {showDatePicker && Platform.OS === 'web' && (
               <DateTimePicker
                 value={value ? new Date(value) : new Date()}
                 mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                display="default"
                 onChange={(event, selectedDate) => {
-                  setShowDatePicker(Platform.OS === 'ios');
+                  setShowDatePicker(false);
                   if (selectedDate) {
                     onChange(selectedDate.toISOString().split('T')[0]);
                   }
@@ -127,7 +146,11 @@ export function DynamicFieldRenderer({ field, value, onChange }: DynamicFieldRen
   };
 
   return (
-    <View className="gap-2">
+    <Animated.View
+      className="gap-2"
+      entering={Platform.OS !== 'web' ? FadeIn.duration(300) : undefined}
+      exiting={Platform.OS !== 'web' ? FadeOut.duration(200) : undefined}
+    >
       {field.type !== 'boolean' && (
         <Text className="text-sm font-medium">
           {field.label}
@@ -135,6 +158,6 @@ export function DynamicFieldRenderer({ field, value, onChange }: DynamicFieldRen
         </Text>
       )}
       {renderField()}
-    </View>
+    </Animated.View>
   );
 }

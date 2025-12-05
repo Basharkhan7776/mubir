@@ -1,15 +1,23 @@
 import { Text, TextClassContext } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
-import { View, type ViewProps } from 'react-native';
+import { Platform, View, type ViewProps } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
+  const CardComponent = Platform.OS === 'web' ? View : AnimatedView;
+  const animationProps = Platform.OS !== 'web' ? { entering: FadeIn.duration(350) } : {};
+
   return (
     <TextClassContext.Provider value="text-card-foreground">
-      <View
+      <CardComponent
         className={cn(
           'bg-card border-border flex flex-col gap-6 rounded-xl border py-6 shadow-sm shadow-black/5',
+          Platform.select({ web: 'animate-scale-in' }),
           className
         )}
+        {...animationProps}
         {...props}
       />
     </TextClassContext.Provider>

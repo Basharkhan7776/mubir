@@ -8,6 +8,8 @@ import { Plus, Search } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import { FlatList, View, Pressable } from 'react-native';
 import { useSelector } from 'react-redux';
+import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
+import { createStaggeredAnimation } from '@/lib/animations';
 
 export default function InventoryScreen() {
     const collections = useSelector((state: RootState) => state.inventory.collections);
@@ -56,22 +58,31 @@ export default function InventoryScreen() {
                     data={filteredCollections}
                     keyExtractor={(item) => item.id}
                     contentContainerClassName="gap-4"
-                    renderItem={({ item }) => (
-                        <Link href={`/inventory/${item.id}`} asChild>
-                            <Button variant="outline" className="h-auto p-0">
-                                <Card className="w-full border-0 shadow-none">
-                                    <CardHeader>
-                                        <CardTitle>{item.name}</CardTitle>
-                                        <CardDescription>{item.data.length} items</CardDescription>
-                                    </CardHeader>
-                                </Card>
-                            </Button>
-                        </Link>
+                    renderItem={({ item, index }) => (
+                        <Animated.View
+                            entering={createStaggeredAnimation(index).withInitialValues({ opacity: 0 })}
+                            exiting={FadeOutUp.duration(200)}
+                            layout={LinearTransition.duration(300).damping(30)}
+                        >
+                            <Link href={`/inventory/${item.id}`} asChild>
+                                <Button variant="outline" className="h-auto p-0">
+                                    <Card className="w-full border-0 shadow-none">
+                                        <CardHeader>
+                                            <CardTitle>{item.name}</CardTitle>
+                                            <CardDescription>{item.data.length} items</CardDescription>
+                                        </CardHeader>
+                                    </Card>
+                                </Button>
+                            </Link>
+                        </Animated.View>
                     )}
                     ListEmptyComponent={
-                        <View className="items-center justify-center p-8">
+                        <Animated.View
+                            className="items-center justify-center p-8"
+                            entering={FadeInDown.delay(200).damping(30)}
+                        >
                             <Text className="text-muted-foreground">No collections found. Create one to get started.</Text>
-                        </View>
+                        </Animated.View>
                     }
                 />
             </View>

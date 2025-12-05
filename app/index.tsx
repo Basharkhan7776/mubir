@@ -4,8 +4,10 @@ import { Text } from '@/components/ui/text';
 import { Link, Stack } from 'expo-router';
 import { LayoutList, Settings, Users } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, View } from 'react-native';
+import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { createStaggeredAnimation } from '@/lib/animations';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -17,61 +19,76 @@ export default function HomeScreen() {
         contentContainerClassName="p-4 gap-6"
         style={{ paddingTop: insets.top }}
       >
-        <View className="items-center py-8">
+        <Animated.View
+          className="items-center py-8"
+          entering={Platform.OS !== 'web' ? FadeInUp.duration(400).damping(30).withInitialValues({ opacity: 0 }) : undefined}
+        >
           <Text className="text-3xl font-bold text-primary">Mudir</Text>
           <Text className="text-muted-foreground">Shopkeeper's Assistant</Text>
+        </Animated.View>
+
+        <View className="gap-4">
+          <Animated.View
+            entering={Platform.OS !== 'web' ? createStaggeredAnimation(0, FadeInDown).withInitialValues({ opacity: 0 }) : undefined}
+          >
+            <Link href="/inventory" asChild>
+              <Button variant="outline" className="h-auto p-0">
+                <Card className="w-full border-0 shadow-sm bg-card">
+                  <CardHeader className="flex-row items-center gap-4">
+                    <View className="p-3 bg-blue-100 rounded-full dark:bg-blue-900">
+                      <LayoutList size={32} className="text-blue-600 dark:text-blue-400" />
+                    </View>
+                    <View className="flex-1">
+                      <CardTitle>Inventory</CardTitle>
+                      <CardDescription>Manage catalogs and items</CardDescription>
+                    </View>
+                  </CardHeader>
+                </Card>
+              </Button>
+            </Link>
+          </Animated.View>
+
+          <Animated.View
+            entering={Platform.OS !== 'web' ? createStaggeredAnimation(1, FadeInDown).withInitialValues({ opacity: 0 }) : undefined}
+          >
+            <Link href="/ledger" asChild>
+              <Button variant="outline" className="h-auto p-0">
+                <Card className="w-full border-0 shadow-sm bg-card">
+                  <CardHeader className="flex-row items-center gap-4">
+                    <View className="p-3 bg-green-100 rounded-full dark:bg-green-900">
+                      <Users size={32} className="text-green-600 dark:text-green-400" />
+                    </View>
+                    <View className="flex-1">
+                      <CardTitle>Ledger</CardTitle>
+                      <CardDescription>Track payments and credits</CardDescription>
+                    </View>
+                  </CardHeader>
+                </Card>
+              </Button>
+            </Link>
+          </Animated.View>
         </View>
 
         <View className="gap-4">
-          <Link href="/inventory" asChild>
-            <Button variant="outline" className="h-auto p-0">
-              <Card className="w-full border-0 shadow-sm bg-card">
-                <CardHeader className="flex-row items-center gap-4">
-                  <View className="p-3 bg-blue-100 rounded-full">
-                    <LayoutList size={32} className="text-blue-600" />
-                  </View>
-                  <View className="flex-1">
-                    <CardTitle>Inventory</CardTitle>
-                    <CardDescription>Manage catalogs and items</CardDescription>
-                  </View>
-                </CardHeader>
-              </Card>
-            </Button>
-          </Link>
-
-          <Link href="/ledger" asChild>
-            <Button variant="outline" className="h-auto p-0">
-              <Card className="w-full border-0 shadow-sm bg-card">
-                <CardHeader className="flex-row items-center gap-4">
-                  <View className="p-3 bg-green-100 rounded-full">
-                    <Users size={32} className="text-green-600" />
-                  </View>
-                  <View className="flex-1">
-                    <CardTitle>Ledger</CardTitle>
-                    <CardDescription>Track payments and credits</CardDescription>
-                  </View>
-                </CardHeader>
-              </Card>
-            </Button>
-          </Link>
-        </View>
-
-        <View className="gap-4">
-          <Link href="/settings" asChild>
-            <Button variant="outline" className="h-auto p-0">
-              <Card className="w-full border-0 shadow-sm bg-card">
-                <CardHeader className="flex-row items-center gap-4">
-                  <View className="p-3 bg-gray-100 rounded-full">
-                    <Settings size={32} className="text-gray-600" />
-                  </View>
-                  <View className="flex-1">
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>Data management and preferences</CardDescription>
-                  </View>
-                </CardHeader>
-              </Card>
-            </Button>
-          </Link>
+          <Animated.View
+            entering={Platform.OS !== 'web' ? createStaggeredAnimation(2, FadeInDown).withInitialValues({ opacity: 0 }) : undefined}
+          >
+            <Link href="/settings" asChild>
+              <Button variant="outline" className="h-auto p-0">
+                <Card className="w-full border-0 shadow-sm bg-card">
+                  <CardHeader className="flex-row items-center gap-4">
+                    <View className="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
+                      <Settings size={32} className="text-gray-600 dark:text-gray-400" />
+                    </View>
+                    <View className="flex-1">
+                      <CardTitle>Settings</CardTitle>
+                      <CardDescription>Data management and preferences</CardDescription>
+                    </View>
+                  </CardHeader>
+                </Card>
+              </Button>
+            </Link>
+          </Animated.View>
         </View>
       </ScrollView>
     </>
