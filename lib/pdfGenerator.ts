@@ -80,14 +80,14 @@ function generateLedgerHTML(
 
   const transactionRows = transactions
     .map(
-      (transaction, index) => `
-    <tr class="${index % 2 === 0 ? 'even-row' : ''}">
+      (transaction) => `
+    <tr>
       <td>${new Date(transaction.date).toLocaleDateString('en-IN')}</td>
       <td>${transaction.remark || '-'}</td>
-      <td class="amount ${transaction.type === 'DEBIT' ? 'debit' : ''}">${
+      <td class="amount">${
         transaction.type === 'DEBIT' ? formatCurrency(transaction.amount, currency) : '-'
       }</td>
-      <td class="amount ${transaction.type === 'CREDIT' ? 'credit' : ''}">${
+      <td class="amount">${
         transaction.type === 'CREDIT' ? formatCurrency(transaction.amount, currency) : '-'
       }</td>
     </tr>
@@ -102,7 +102,6 @@ function generateLedgerHTML(
     .filter((t) => t.type === 'DEBIT')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const balanceColor = balance > 0 ? '#16a34a' : balance < 0 ? '#dc2626' : '#6b7280';
   const balanceText =
     balance > 0
       ? `You will get ${formatCurrency(balance, currency)}`
@@ -118,6 +117,11 @@ function generateLedgerHTML(
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>Ledger - ${organization.name}</title>
       <style>
+        @page {
+          size: A4;
+          margin: 15mm;
+        }
+
         * {
           margin: 0;
           padding: 0;
@@ -125,177 +129,209 @@ function generateLedgerHTML(
         }
 
         body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          padding: 40px;
-          color: #1f2937;
-          line-height: 1.6;
+          font-family: 'Courier New', Courier, monospace;
+          font-size: 10px;
+          color: #000;
+          line-height: 1.3;
+          padding: 0;
         }
 
         .header {
-          margin-bottom: 30px;
-          border-bottom: 3px solid #3b82f6;
-          padding-bottom: 20px;
+          margin-bottom: 15px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 8px;
         }
 
         .org-name {
-          font-size: 28px;
+          font-size: 14px;
           font-weight: bold;
-          color: #1f2937;
-          margin-bottom: 5px;
+          color: #000;
+          margin-bottom: 3px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
         }
 
         .document-title {
-          font-size: 20px;
-          color: #6b7280;
-          margin-bottom: 20px;
+          font-size: 11px;
+          color: #000;
+          font-weight: bold;
+        }
+
+        .info-section {
+          margin-bottom: 12px;
         }
 
         .party-info {
-          background: #f9fafb;
-          padding: 20px;
-          border-radius: 8px;
-          margin-bottom: 20px;
+          border: 1px solid #000;
+          padding: 8px 10px;
+          margin-bottom: 10px;
         }
 
         .party-name {
-          font-size: 24px;
-          font-weight: 600;
-          color: #1f2937;
-          margin-bottom: 8px;
+          font-size: 12px;
+          font-weight: bold;
+          color: #000;
+          margin-bottom: 4px;
         }
 
         .party-details {
-          display: flex;
-          gap: 20px;
-          color: #6b7280;
-          font-size: 14px;
+          color: #000;
+          font-size: 9px;
+          line-height: 1.4;
         }
 
         .balance-card {
-          background: linear-gradient(135deg, ${balanceColor}15 0%, ${balanceColor}05 100%);
-          border-left: 4px solid ${balanceColor};
-          padding: 20px;
-          margin-bottom: 30px;
-          border-radius: 8px;
+          border: 1.5px solid #000;
+          padding: 8px 10px;
+          margin-bottom: 12px;
+          background: #fff;
         }
 
         .balance-label {
-          font-size: 14px;
-          color: #6b7280;
-          margin-bottom: 5px;
+          font-size: 9px;
+          color: #000;
+          margin-bottom: 3px;
+          font-weight: bold;
+          text-transform: uppercase;
         }
 
         .balance-amount {
-          font-size: 28px;
+          font-size: 12px;
           font-weight: bold;
-          color: ${balanceColor};
+          color: #000;
+        }
+
+        .table-container {
+          page-break-inside: auto;
+          margin-bottom: 12px;
         }
 
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 30px;
-          background: white;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          border: 1px solid #000;
+          page-break-inside: auto;
         }
 
         thead {
-          background: #f3f4f6;
+          display: table-header-group;
+        }
+
+        tbody {
+          display: table-row-group;
         }
 
         th {
-          padding: 12px;
+          padding: 6px 5px;
           text-align: left;
-          font-weight: 600;
-          color: #374151;
-          font-size: 13px;
+          font-weight: bold;
+          color: #000;
+          font-size: 9px;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
-          border-bottom: 2px solid #e5e7eb;
+          border-bottom: 1.5px solid #000;
+          border-right: 1px solid #000;
+          background: #fff;
+        }
+
+        th:last-child {
+          border-right: none;
+        }
+
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
         }
 
         td {
-          padding: 12px;
-          border-bottom: 1px solid #f3f4f6;
-          font-size: 14px;
+          padding: 5px;
+          border-bottom: 0.5px solid #ccc;
+          border-right: 1px solid #ccc;
+          font-size: 9px;
+          color: #000;
+          vertical-align: top;
         }
 
-        .even-row {
-          background: #f9fafb;
+        td:last-child {
+          border-right: none;
+        }
+
+        tbody tr:last-child td {
+          border-bottom: 1px solid #000;
         }
 
         .amount {
           text-align: right;
-          font-weight: 500;
+          font-weight: normal;
           font-family: 'Courier New', monospace;
         }
 
-        .debit {
-          color: #16a34a;
-        }
-
-        .credit {
-          color: #dc2626;
-        }
-
         .summary {
-          background: #f9fafb;
-          padding: 20px;
-          border-radius: 8px;
-          margin-top: 20px;
+          border: 1px solid #000;
+          padding: 8px 10px;
+          margin-top: 10px;
+          page-break-inside: avoid;
         }
 
         .summary-title {
-          font-size: 16px;
-          font-weight: 600;
-          margin-bottom: 15px;
-          color: #1f2937;
+          font-size: 10px;
+          font-weight: bold;
+          margin-bottom: 8px;
+          color: #000;
+          text-transform: uppercase;
         }
 
         .summary-row {
           display: flex;
           justify-content: space-between;
-          padding: 8px 0;
-          border-bottom: 1px solid #e5e7eb;
+          padding: 4px 0;
+          border-bottom: 0.5px dotted #666;
+          font-size: 9px;
         }
 
         .summary-row:last-child {
           border-bottom: none;
-          padding-top: 12px;
-          margin-top: 8px;
-          border-top: 2px solid #3b82f6;
-          font-weight: 600;
-          font-size: 16px;
+          padding-top: 6px;
+          margin-top: 4px;
+          border-top: 1.5px solid #000;
+          font-weight: bold;
+          font-size: 10px;
         }
 
         .summary-label {
-          color: #6b7280;
+          color: #000;
         }
 
         .summary-value {
-          font-weight: 500;
+          font-weight: normal;
           font-family: 'Courier New', monospace;
+          color: #000;
         }
 
         .footer {
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 2px solid #e5e7eb;
+          margin-top: 15px;
+          padding-top: 8px;
+          border-top: 1px solid #000;
           text-align: center;
-          color: #9ca3af;
-          font-size: 12px;
+          color: #666;
+          font-size: 8px;
+          page-break-inside: avoid;
         }
 
         .no-transactions {
           text-align: center;
-          padding: 40px;
-          color: #9ca3af;
+          padding: 20px;
+          color: #666;
           font-style: italic;
+          font-size: 9px;
         }
 
         @media print {
           body {
-            padding: 20px;
+            padding: 0;
+          }
+
+          .page-break {
+            page-break-before: always;
           }
         }
       </style>
@@ -303,52 +339,56 @@ function generateLedgerHTML(
     <body>
       <div class="header">
         <div class="org-name">${orgName}</div>
-        <div class="document-title">Ledger Statement</div>
+        <div class="document-title">LEDGER STATEMENT</div>
       </div>
 
-      <div class="party-info">
-        <div class="party-name">${organization.name}</div>
-        <div class="party-details">
-          ${organization.phone ? `<span>📞 ${organization.phone}</span>` : ''}
-          ${organization.email ? `<span>✉️ ${organization.email}</span>` : ''}
+      <div class="info-section">
+        <div class="party-info">
+          <div class="party-name">${organization.name}</div>
+          <div class="party-details">
+            ${organization.phone ? `<div>Phone: ${organization.phone}</div>` : ''}
+            ${organization.email ? `<div>Email: ${organization.email}</div>` : ''}
+          </div>
         </div>
-      </div>
 
-      <div class="balance-card">
-        <div class="balance-label">Current Balance</div>
-        <div class="balance-amount">${balanceText}</div>
+        <div class="balance-card">
+          <div class="balance-label">Current Balance</div>
+          <div class="balance-amount">${balanceText}</div>
+        </div>
       </div>
 
       ${
         transactions.length > 0
           ? `
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 15%;">Date</th>
-            <th style="width: 45%;">Particulars</th>
-            <th style="width: 20%; text-align: right;">You Took</th>
-            <th style="width: 20%; text-align: right;">You Gave</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${transactionRows}
-        </tbody>
-      </table>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 12%;">DATE</th>
+              <th style="width: 48%;">PARTICULARS</th>
+              <th style="width: 20%; text-align: right;">DEBIT</th>
+              <th style="width: 20%; text-align: right;">CREDIT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${transactionRows}
+          </tbody>
+        </table>
+      </div>
 
       <div class="summary">
         <div class="summary-title">Summary</div>
         <div class="summary-row">
           <span class="summary-label">Total Debit (You Took)</span>
-          <span class="summary-value debit">${formatCurrency(totalDebit, currency)}</span>
+          <span class="summary-value">${formatCurrency(totalDebit, currency)}</span>
         </div>
         <div class="summary-row">
           <span class="summary-label">Total Credit (You Gave)</span>
-          <span class="summary-value credit">${formatCurrency(totalCredit, currency)}</span>
+          <span class="summary-value">${formatCurrency(totalCredit, currency)}</span>
         </div>
         <div class="summary-row">
           <span class="summary-label">Net Balance</span>
-          <span class="summary-value" style="color: ${balanceColor};">${balanceText}</span>
+          <span class="summary-value">${balanceText}</span>
         </div>
       </div>
       `

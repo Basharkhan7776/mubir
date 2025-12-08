@@ -6,10 +6,11 @@ import { RootState } from '@/lib/store';
 import { Link, Stack, useRouter } from 'expo-router';
 import { Plus, Search } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { FlatList, View, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { useSelector } from 'react-redux';
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { createStaggeredAnimation } from '@/lib/animations';
+import { CollapsingHeaderFlatList } from '@/components/CollapsingHeaderFlatList';
 
 export default function InventoryScreen() {
     const collections = useSelector((state: RootState) => state.inventory.collections);
@@ -42,22 +43,27 @@ export default function InventoryScreen() {
                     )
                 }}
             />
-            <View className="flex-1 p-4 gap-4">
-                {/* Search Bar */}
-                <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                    <Search size={20} color="#666" />
-                    <Input
-                        placeholder="Search collections..."
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        className="flex-1 border-0 bg-transparent"
-                    />
-                </View>
-
-                <FlatList
+            <View className="flex-1">
+                <CollapsingHeaderFlatList
+                    title="Inventory"
+                    subtitle="Manage catalogs and items"
                     data={filteredCollections}
                     keyExtractor={(item) => item.id}
-                    contentContainerClassName="gap-4"
+                    contentContainerClassName="p-4 gap-4"
+                    listHeaderComponent={
+                        <View className="px-4 pb-4">
+                            {/* Search Bar */}
+                            <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                                <Search size={20} color="#666" />
+                                <Input
+                                    placeholder="Search collections..."
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    className="flex-1 border-0 bg-transparent"
+                                />
+                            </View>
+                        </View>
+                    }
                     renderItem={({ item, index }) => (
                         <Animated.View
                             entering={createStaggeredAnimation(index).withInitialValues({ opacity: 0 })}

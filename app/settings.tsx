@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Stack } from 'expo-router';
-import { FileDown, FileUp, Moon, Sun } from 'lucide-react-native';
+import { FileDown, FileUp, Moon, Sun, Database, Trash2 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -15,6 +15,8 @@ import { updateOrganizationName, updateCurrency, setSettings } from '@/lib/store
 import { setCollections } from '@/lib/store/slices/inventorySlice';
 import { setLedger } from '@/lib/store/slices/ledgerSlice';
 import { exportData, importData } from '@/lib/utils/export-import';
+import { seedDatabase, clearDatabase } from '@/lib/seed';
+import { seedData } from '@/lib/seedData';
 
 const CURRENCIES = [
     { value: '₹', label: '₹ Indian Rupee' },
@@ -30,6 +32,8 @@ export default function SettingsScreen() {
     const settings = useSelector((state: RootState) => state.settings);
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [isSeeding, setIsSeeding] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
     const [successDialogOpen, setSuccessDialogOpen] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
 
@@ -54,6 +58,41 @@ export default function SettingsScreen() {
             dispatch(setCollections(data.collections));
             dispatch(setLedger(data.ledger));
             setSuccessMessage('Data imported successfully');
+            setSuccessDialogOpen(true);
+        }
+    };
+
+    const handleSeed = async () => {
+        setIsSeeding(true);
+        const success = await seedDatabase();
+        setIsSeeding(false);
+
+        if (success) {
+            // Update all Redux slices with seed data
+            dispatch(setSettings(seedData.meta));
+            dispatch(setCollections(seedData.collections));
+            dispatch(setLedger(seedData.ledger));
+            setSuccessMessage('Database seeded with demo data successfully! The app will reload.');
+            setSuccessDialogOpen(true);
+        }
+    };
+
+    const handleClear = async () => {
+        setIsClearing(true);
+        const success = await clearDatabase();
+        setIsClearing(false);
+
+        if (success) {
+            // Clear all Redux slices
+            dispatch(setSettings({
+                appVersion: '1.0.0',
+                exportDate: new Date().toISOString(),
+                userCurrency: '₹',
+                organizationName: '',
+            }));
+            dispatch(setCollections([]));
+            dispatch(setLedger([]));
+            setSuccessMessage('Database cleared successfully!');
             setSuccessDialogOpen(true);
         }
     };
@@ -138,6 +177,36 @@ export default function SettingsScreen() {
                             <FileUp size={20} className="mr-2 text-foreground" />
                             <Text>{isImporting ? 'Importing...' : 'Import Data'}</Text>
                         </Button>
+                    </View>
+                </View>
+
+                {/* Developer Tools */}
+                <View className="gap-4">
+                    <Text className="text-lg font-semibold">Developer Tools</Text>
+                    <View className="gap-2">
+                        <Text className="text-sm text-muted-foreground">
+                            Seed the database with demo data for testing and development
+                        </Text>
+                        <View className="flex-row gap-4">
+                            <Button
+                                className="flex-1"
+                                variant="default"
+                                onPress={handleSeed}
+                                disabled={isSeeding}
+                            >
+                                <Database size={20} className="mr-2 text-primary-foreground" />
+                                <Text>{isSeeding ? 'Seeding...' : 'Seed Database'}</Text>
+                            </Button>
+                            <Button
+                                className="flex-1"
+                                variant="destructive"
+                                onPress={handleClear}
+                                disabled={isClearing}
+                            >
+                                <Trash2 size={20} className="mr-2 text-destructive-foreground" />
+                                <Text>{isClearing ? 'Clearing...' : 'Clear Database'}</Text>
+                            </Button>
+                        </View>
                     </View>
                 </View>
             </ScrollView>

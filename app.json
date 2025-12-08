@@ -20,11 +20,17 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mudir.app",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -36,6 +42,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3eae7575-5de0-4814-a2f6-03d3e4c1fdd6"
+      }
+    },
+    "owner": "bashar_khan"
   }
 }

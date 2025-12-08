@@ -7,10 +7,11 @@ import { RootState } from '@/lib/store';
 import { Link, Stack } from 'expo-router';
 import { Plus, Search } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { FlatList, View, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { CollapsingHeaderFlatList } from '@/components/CollapsingHeaderFlatList';
 
 export default function LedgerScreen() {
     const entries = useSelector((state: RootState) => state.ledger.entries);
@@ -80,52 +81,56 @@ export default function LedgerScreen() {
                     )
                 }}
             />
-            <View className="flex-1 p-4 gap-4">
-                {/* Search Bar */}
-                <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                    <Search size={20} color="#666" />
-                    <Input
-                        placeholder="Search organizations..."
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        className="flex-1 border-0 bg-transparent"
-                    />
-                </View>
-
-                {isAdding && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>New Party</CardTitle>
-                        </CardHeader>
-                        <CardContent className="gap-4">
-                            <Input
-                                placeholder="Name"
-                                value={newName}
-                                onChangeText={setNewName}
-                            />
-                            <Input
-                                placeholder="Phone (Optional)"
-                                value={newPhone}
-                                onChangeText={setNewPhone}
-                                keyboardType="phone-pad"
-                            />
-                            {/* Type selection removed as it's not in new schema, or we can add it back if schema updates */}
-                        </CardContent>
-                        <CardFooter className="justify-end gap-2">
-                            <Button variant="outline" onPress={() => setIsAdding(false)}>
-                                <Text>Cancel</Text>
-                            </Button>
-                            <Button onPress={handleAddParty}>
-                                <Text>Create</Text>
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                )}
-
-                <FlatList
+            <View className="flex-1">
+                <CollapsingHeaderFlatList
+                    title="Ledger"
+                    subtitle="Track payments and credits"
                     data={filteredEntries}
                     keyExtractor={(item) => item.organization.id}
-                    contentContainerClassName="gap-4"
+                    contentContainerClassName="p-4 gap-4"
+                    listHeaderComponent={
+                        <View className="px-4 pb-4 gap-4">
+                            {/* Search Bar */}
+                            <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                                <Search size={20} color="#666" />
+                                <Input
+                                    placeholder="Search organizations..."
+                                    value={searchQuery}
+                                    onChangeText={setSearchQuery}
+                                    className="flex-1 border-0 bg-transparent"
+                                />
+                            </View>
+
+                            {isAdding && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>New Party</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="gap-4">
+                                        <Input
+                                            placeholder="Name"
+                                            value={newName}
+                                            onChangeText={setNewName}
+                                        />
+                                        <Input
+                                            placeholder="Phone (Optional)"
+                                            value={newPhone}
+                                            onChangeText={setNewPhone}
+                                            keyboardType="phone-pad"
+                                        />
+                                    </CardContent>
+                                    <CardFooter className="justify-end gap-2">
+                                        <Button variant="outline" onPress={() => setIsAdding(false)}>
+                                            <Text>Cancel</Text>
+                                        </Button>
+                                        <Button onPress={handleAddParty}>
+                                            <Text>Create</Text>
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            )}
+                        </View>
+                    }
                     renderItem={({ item }) => {
                         const balance = getBalance(item.transactions);
                         const balanceColor = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-muted-foreground';
