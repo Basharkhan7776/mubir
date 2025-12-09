@@ -2,18 +2,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
+import { Icon } from '@/components/ui/icon';
 import { RootState } from '@/lib/store';
+import { deleteCollection } from '@/lib/store/slices/inventorySlice';
 import { Link, Stack, useRouter } from 'expo-router';
-import { Plus, Search } from 'lucide-react-native';
+import { Plus, Search, Trash } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { View, Pressable } from 'react-native';
-import { useSelector } from 'react-redux';
+import { View, Pressable, Alert } from 'react-native';
+import { useSelector, useDispatch } from 'react-redux';
 import Animated, { FadeInDown, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 import { createStaggeredAnimation } from '@/lib/animations';
 import { CollapsingHeaderFlatList } from '@/components/CollapsingHeaderFlatList';
 
 export default function InventoryScreen() {
     const collections = useSelector((state: RootState) => state.inventory.collections);
+    const dispatch = useDispatch();
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -27,6 +30,21 @@ export default function InventoryScreen() {
         );
     }, [collections, searchQuery]);
 
+    const handleDelete = (id: string, name: string) => {
+        Alert.alert(
+            "Delete Collection",
+            `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => dispatch(deleteCollection(id))
+                }
+            ]
+        );
+    };
+
     return (
         <>
             <Stack.Screen
@@ -38,7 +56,7 @@ export default function InventoryScreen() {
                             onPress={() => router.push('/inventory/schema-builder')}
                             style={{ padding: 8, marginRight: 8 }}
                         >
-                            <Plus size={24} color="#000" />
+                            <Icon as={Plus} size={24} className="text-foreground" />
                         </Pressable>
                     )
                 }}
@@ -54,7 +72,7 @@ export default function InventoryScreen() {
                         <View className="px-4 pb-4">
                             {/* Search Bar */}
                             <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                                <Search size={20} color="#666" />
+                                <Icon as={Search} size={20} className="text-muted-foreground" />
                                 <Input
                                     placeholder="Search collections..."
                                     value={searchQuery}

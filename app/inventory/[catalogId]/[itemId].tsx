@@ -7,6 +7,7 @@ import { deleteItem, updateItem } from '@/lib/store/slices/inventorySlice';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Trash2, Edit, X, Check } from 'lucide-react-native';
 import { DynamicFieldRenderer } from '@/components/inventory/DynamicFieldRenderer';
@@ -108,9 +109,9 @@ export default function ItemDetailScreen() {
               style={{ padding: 8, marginRight: 8 }}
             >
               {isEditing ? (
-                <X size={24} color="#000" />
+                <Icon as={X} size={24} className="text-foreground" />
               ) : (
-                <Edit size={22} color="#000" />
+                <Icon as={Edit} size={22} className="text-foreground" />
               )}
             </Pressable>
           )
@@ -165,7 +166,7 @@ export default function ItemDetailScreen() {
                 <Text>Cancel</Text>
               </Button>
               <Button className="flex-1" onPress={handleSave}>
-                <Check size={18} className="text-primary-foreground mr-2" />
+                <Icon as={Check} size={18} className="text-primary-foreground mr-2" />
                 <Text>Save</Text>
               </Button>
             </CardFooter>
@@ -179,7 +180,7 @@ export default function ItemDetailScreen() {
             onPress={handleDelete}
             className="flex-row items-center justify-center gap-2"
           >
-            <Trash2 size={20} className="text-destructive-foreground" />
+            <Icon as={Trash2} size={20} className="text-destructive-foreground" />
             <Text className="text-destructive-foreground">Delete Item</Text>
           </Button>
         )}

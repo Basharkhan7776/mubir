@@ -46,8 +46,11 @@ const ledgerSlice = createSlice({
                 entry.transactions = entry.transactions.filter((t) => t.id !== action.payload.transactionId);
             }
         },
+        deleteOrganization: (state, action: PayloadAction<string>) => {
+            state.entries = state.entries.filter((e) => e.organization.id !== action.payload);
+        },
     },
 });
 
-export const { setLedger, addOrganization, addTransaction, updateOrganization, updateTransaction, deleteTransaction } = ledgerSlice.actions;
+export const { setLedger, addOrganization, addTransaction, updateOrganization, updateTransaction, deleteTransaction, deleteOrganization } = ledgerSlice.actions;
 export default ledgerSlice.reducer;

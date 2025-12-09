@@ -2,8 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Input } from '@/components/ui/input';
+import { Icon } from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { addItem, deleteItem } from '@/lib/store/slices/inventorySlice';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { addItem, deleteItem, deleteCollection } from '@/lib/store/slices/inventorySlice';
 import { RootState } from '@/lib/store';
 import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Plus, Trash2, Settings, Search } from 'lucide-react-native';
@@ -26,6 +28,7 @@ export default function CatalogScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [errorDialogOpen, setErrorDialogOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+    const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false);
 
     if (!collection) {
         return (
@@ -34,6 +37,11 @@ export default function CatalogScreen() {
             </View>
         );
     }
+
+    const handleDeleteCollection = () => {
+        dispatch(deleteCollection(catalogId));
+        router.back();
+    };
 
     const handleAddItem = () => {
         // Basic validation: check required fields
@@ -89,16 +97,22 @@ export default function CatalogScreen() {
                     headerRight: () => (
                         <View style={{ flexDirection: 'row', marginRight: 8 }}>
                             <Pressable
+                                onPress={() => setDeleteCollectionOpen(true)}
+                                style={{ padding: 8 }}
+                            >
+                                <Icon as={Trash2} size={22} className="text-destructive" />
+                            </Pressable>
+                            <Pressable
                                 onPress={() => router.push(`/inventory/${catalogId}/edit-schema`)}
                                 style={{ padding: 8 }}
                             >
-                                <Settings size={22} color="#000" />
+                                <Icon as={Settings} size={22} className="text-foreground" />
                             </Pressable>
                             <Pressable
                                 onPress={() => setIsAdding(!isAdding)}
                                 style={{ padding: 8 }}
                             >
-                                <Plus size={24} color="#000" />
+                                <Icon as={Plus} size={24} className="text-foreground" />
                             </Pressable>
                         </View>
                     )
@@ -107,7 +121,7 @@ export default function CatalogScreen() {
             <View className="flex-1 p-4 gap-4">
                 {/* Search Bar */}
                 <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                    <Search size={20} color="#666" />
+                    <Icon as={Search} size={20} className="text-muted-foreground" />
                     <Input
                         placeholder="Search items..."
                         value={searchQuery}
@@ -217,6 +231,26 @@ export default function CatalogScreen() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Delete Collection Alert Dialog */}
+                <AlertDialog open={deleteCollectionOpen} onOpenChange={setDeleteCollectionOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Collection</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete "{collection.name}"? This will permanently delete all items in this collection. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>
+                                <Text>Cancel</Text>
+                            </AlertDialogCancel>
+                            <AlertDialogAction onPress={handleDeleteCollection} className="bg-destructive">
+                                <Text className="text-destructive-foreground">Delete</Text>
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </View>
         </>
     );

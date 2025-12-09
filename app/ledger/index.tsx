@@ -2,12 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
-import { addOrganization } from '@/lib/store/slices/ledgerSlice';
+import { Icon } from '@/components/ui/icon';
+import { addOrganization, deleteOrganization } from '@/lib/store/slices/ledgerSlice';
 import { RootState } from '@/lib/store';
 import { Link, Stack } from 'expo-router';
-import { Plus, Search } from 'lucide-react-native';
+import { Plus, Search, Trash } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { View, Pressable } from 'react-native';
+import { View, Pressable, Alert } from 'react-native';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -48,6 +49,21 @@ export default function LedgerScreen() {
         }
     };
 
+    const handleDelete = (id: string, name: string) => {
+        Alert.alert(
+            "Delete Organization",
+            `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => dispatch(deleteOrganization(id))
+                }
+            ]
+        );
+    };
+
     const getBalance = (transactions: any[]) => {
         return transactions.reduce((acc, t) => {
             return t.type === 'CREDIT' ? acc - t.amount : acc + t.amount;
@@ -76,7 +92,7 @@ export default function LedgerScreen() {
                             onPress={() => setIsAdding(!isAdding)}
                             style={{ padding: 8, marginRight: 8 }}
                         >
-                            <Plus size={24} color="#000" />
+                            <Icon as={Plus} size={24} className="text-foreground" />
                         </Pressable>
                     )
                 }}
@@ -92,7 +108,7 @@ export default function LedgerScreen() {
                         <View className="px-4 pb-4 gap-4">
                             {/* Search Bar */}
                             <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                                <Search size={20} color="#666" />
+                                <Icon as={Search} size={20} className="text-muted-foreground" />
                                 <Input
                                     placeholder="Search organizations..."
                                     value={searchQuery}

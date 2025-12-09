@@ -2,25 +2,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { Icon } from '@/components/ui/icon';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
-import { addTransaction, updateOrganization, updateTransaction, deleteTransaction } from '@/lib/store/slices/ledgerSlice';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { addTransaction, updateOrganization, updateTransaction, deleteTransaction, deleteOrganization } from '@/lib/store/slices/ledgerSlice';
 import { RootState } from '@/lib/store';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, Search, Edit, X, Check, Trash2, Printer } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import { FlatList, View, Pressable, Platform, ActivityIndicator } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useColorScheme } from 'nativewind';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { generateLedgerPDF } from '@/lib/pdfGenerator';
 
 export default function PartyScreen() {
     const { partyId } = useLocalSearchParams<{ partyId: string }>();
+    const router = useRouter();
     const entry = useSelector((state: RootState) =>
         state.ledger.entries.find((e) => e.organization.id === partyId)
     );
     const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
     const orgName = useSelector((state: RootState) => state.settings.organizationName);
     const dispatch = useDispatch();
+    const { colorScheme } = useColorScheme();
     const [isPrintingPDF, setIsPrintingPDF] = useState(false);
 
     const [amount, setAmount] = useState('');
@@ -37,6 +42,7 @@ export default function PartyScreen() {
     const [editedTxnDate, setEditedTxnDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleteOrgOpen, setDeleteOrgOpen] = useState(false);
     const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
     const [errorDialogOpen, setErrorDialogOpen] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -50,6 +56,11 @@ export default function PartyScreen() {
             </View>
         );
     }
+
+    const handleDeleteOrg = () => {
+        dispatch(deleteOrganization(partyId));
+        router.back();
+    };
 
     const handleTransaction = (type: 'CREDIT' | 'DEBIT') => {
         if (amount && !isNaN(parseFloat(amount))) {
@@ -198,14 +209,20 @@ export default function PartyScreen() {
                     headerRight: () => (
                         <View style={{ flexDirection: 'row', marginRight: 8 }}>
                             <Pressable
+                                onPress={() => setDeleteOrgOpen(true)}
+                                style={{ padding: 8 }}
+                            >
+                                <Icon as={Trash2} size={22} className="text-destructive" />
+                            </Pressable>
+                            <Pressable
                                 onPress={handlePrintPDF}
                                 style={{ padding: 8 }}
                                 disabled={isPrintingPDF}
                             >
                                 {isPrintingPDF ? (
-                                    <ActivityIndicator size="small" color="#000" />
+                                    <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#fff' : '#000'} />
                                 ) : (
-                                    <Printer size={22} color="#000" />
+                                    <Icon as={Printer} size={22} className="text-foreground" />
                                 )}
                             </Pressable>
                             <Pressable
@@ -213,9 +230,9 @@ export default function PartyScreen() {
                                 style={{ padding: 8 }}
                             >
                                 {isEditingOrg ? (
-                                    <X size={24} color="#000" />
+                                    <Icon as={X} size={24} className="text-foreground" />
                                 ) : (
-                                    <Edit size={22} color="#000" />
+                                    <Icon as={Edit} size={22} className="text-foreground" />
                                 )}
                             </Pressable>
                         </View>
@@ -225,7 +242,7 @@ export default function PartyScreen() {
             <View className="flex-1 p-4 gap-4">
                 {/* Search Bar */}
                 <View className="flex-row items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                    <Search size={20} color="#666" />
+                    <Icon as={Search} size={20} className="text-muted-foreground" />
                     <Input
                         placeholder="Search by amount or remark..."
                         value={searchQuery}
@@ -412,10 +429,10 @@ export default function PartyScreen() {
                                             {currencySymbol}{item.amount}
                                         </Text>
                                         <Pressable onPress={() => handleEditTransaction(item)} style={{ padding: 4 }}>
-                                            <Edit size={18} color="#666" />
+                                            <Icon as={Edit} size={18} className="text-muted-foreground" />
                                         </Pressable>
                                         <Pressable onPress={() => handleDeleteTransaction(item.id)} style={{ padding: 4 }}>
-                                            <Trash2 size={18} color="#ef4444" />
+                                            <Icon as={Trash2} size={18} className="text-destructive" />
                                         </Pressable>
                                     </View>
                                 </CardContent>
@@ -429,7 +446,7 @@ export default function PartyScreen() {
                     }
                 />
 
-                {/* Delete Confirmation Dialog */}
+                {/* Delete Transaction Dialog */}
                 <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                     <DialogContent>
                         <DialogHeader>
@@ -450,6 +467,26 @@ export default function PartyScreen() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Delete Organization Dialog */}
+                <AlertDialog open={deleteOrgOpen} onOpenChange={setDeleteOrgOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete "{entry.organization.name}"? This will permanently delete all associated transactions. This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>
+                                <Text>Cancel</Text>
+                            </AlertDialogCancel>
+                            <AlertDialogAction onPress={handleDeleteOrg} className="bg-destructive">
+                                <Text className="text-destructive-foreground">Delete</Text>
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
 
                 {/* Error Dialog */}
                 <Dialog open={errorDialogOpen} onOpenChange={setErrorDialogOpen}>
