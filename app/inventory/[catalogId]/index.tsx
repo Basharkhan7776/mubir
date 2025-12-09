@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { addItem, deleteItem, deleteCollection } from '@/lib/store/slices/inventorySlice';
 import { RootState } from '@/lib/store';
-import { Link, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Plus, Trash2, Settings, Search } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import { FlatList, View, Pressable } from 'react-native';
@@ -30,17 +30,29 @@ export default function CatalogScreen() {
     const [errorMessage, setErrorMessage] = useState('');
     const [deleteCollectionOpen, setDeleteCollectionOpen] = useState(false);
 
+    const navigation = useNavigation();
+
     if (!collection) {
         return (
-            <View className="flex-1 items-center justify-center">
-                <Text>Collection not found</Text>
-            </View>
+            <>
+                <Stack.Screen options={{ title: 'Collection Not Found' }} />
+                <View className="flex-1 items-center justify-center">
+                    <Text>Collection not found</Text>
+                </View>
+            </>
         );
     }
 
     const handleDeleteCollection = () => {
-        dispatch(deleteCollection(catalogId));
-        router.back();
+        if (navigation.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/inventory');
+        }
+
+        setTimeout(() => {
+            dispatch(deleteCollection(catalogId));
+        }, 100);
     };
 
     const handleAddItem = () => {

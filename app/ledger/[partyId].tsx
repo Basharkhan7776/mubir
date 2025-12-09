@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { addTransaction, updateOrganization, updateTransaction, deleteTransaction, deleteOrganization } from '@/lib/store/slices/ledgerSlice';
 import { RootState } from '@/lib/store';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, Search, Edit, X, Check, Trash2, Printer } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
 import { FlatList, View, Pressable, Platform, ActivityIndicator } from 'react-native';
@@ -26,8 +26,10 @@ export default function PartyScreen() {
     const orgName = useSelector((state: RootState) => state.settings.organizationName);
     const dispatch = useDispatch();
     const { colorScheme } = useColorScheme();
-    const [isPrintingPDF, setIsPrintingPDF] = useState(false);
+    const navigation = useNavigation();
 
+    // Ensure hooks are called before conditional return
+    const [isPrintingPDF, setIsPrintingPDF] = useState(false);
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -51,15 +53,26 @@ export default function PartyScreen() {
 
     if (!entry) {
         return (
-            <View className="flex-1 items-center justify-center">
-                <Text>Party not found</Text>
-            </View>
+            <>
+                <Stack.Screen options={{ title: 'Party Not Found' }} />
+                <View className="flex-1 items-center justify-center">
+                    <Text>Party not found</Text>
+                </View>
+            </>
         );
     }
 
     const handleDeleteOrg = () => {
-        dispatch(deleteOrganization(partyId));
-        router.back();
+        if (navigation.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/ledger');
+        }
+
+        // Dispatch delete after navigation to prevent "Not Found" state flash or navigation errors
+        setTimeout(() => {
+            dispatch(deleteOrganization(partyId));
+        }, 100);
     };
 
     const handleTransaction = (type: 'CREDIT' | 'DEBIT') => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Pressable } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
 import { deleteItem, updateItem } from '@/lib/store/slices/inventorySlice';
@@ -32,11 +32,16 @@ export default function ItemDetailScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
 
+  const navigation = useNavigation();
+
   if (!collection || !item) {
     return (
-      <View className="flex-1 items-center justify-center">
-        <Text>Item not found</Text>
-      </View>
+      <>
+        <Stack.Screen options={{ title: 'Item Not Found' }} />
+        <View className="flex-1 items-center justify-center">
+          <Text>Item not found</Text>
+        </View>
+      </>
     );
   }
 
@@ -45,9 +50,17 @@ export default function ItemDetailScreen() {
   };
 
   const confirmDelete = () => {
-    dispatch(deleteItem({ collectionId: catalogId, itemId }));
     setDeleteDialogOpen(false);
-    router.back();
+    if (navigation.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/inventory/${catalogId}`);
+    }
+
+    // Dispatch delete after navigation to prevent "Not Found" state flash
+    setTimeout(() => {
+      dispatch(deleteItem({ collectionId: catalogId, itemId }));
+    }, 100);
   };
 
   const handleSave = () => {
