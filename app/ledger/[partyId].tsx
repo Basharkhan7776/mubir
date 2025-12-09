@@ -414,9 +414,9 @@ export default function PartyScreen() {
                                 <CardContent className="flex-row justify-between items-center p-4">
                                     <View className="flex-row items-center gap-2 flex-1">
                                         {item.type === 'CREDIT' ? (
-                                            <ArrowUpRight size={24} className="text-red-600" />
+                                            <Icon as={ArrowUpRight} size={24} className="text-foreground" />
                                         ) : (
-                                            <ArrowDownLeft size={24} className="text-green-600" />
+                                            <Icon as={ArrowDownLeft} size={24} className="text-foreground" />
                                         )}
                                         <View className="flex-1">
                                             <Text className="font-bold">{item.type === 'CREDIT' ? 'You Gave' : 'You Took'}</Text>

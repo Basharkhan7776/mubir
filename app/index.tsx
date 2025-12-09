@@ -8,6 +8,7 @@ import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { createStaggeredAnimation } from '@/lib/animations';
+import { Icon } from '@/components/ui/icon';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -36,7 +37,7 @@ export default function HomeScreen() {
                 <Card className="w-full border-0 shadow-sm bg-card">
                   <CardHeader className="flex-row items-center gap-4">
                     <View className="p-3 bg-blue-100 rounded-full dark:bg-blue-900">
-                      <LayoutList size={32} className="text-blue-600 dark:text-blue-400" />
+                      <Icon as={LayoutList} size={24} className="text-foreground" />
                     </View>
                     <View className="flex-1">
                       <CardTitle>Inventory</CardTitle>
@@ -56,7 +57,7 @@ export default function HomeScreen() {
                 <Card className="w-full border-0 shadow-sm bg-card">
                   <CardHeader className="flex-row items-center gap-4">
                     <View className="p-3 bg-green-100 rounded-full dark:bg-green-900">
-                      <Users size={32} className="text-green-600 dark:text-green-400" />
+                      <Icon as={Users} size={24} className="text-green-600 dark:text-green-100" />
                     </View>
                     <View className="flex-1">
                       <CardTitle>Ledger</CardTitle>
@@ -78,7 +79,7 @@ export default function HomeScreen() {
                 <Card className="w-full border-0 shadow-sm bg-card">
                   <CardHeader className="flex-row items-center gap-4">
                     <View className="p-3 bg-gray-100 rounded-full dark:bg-gray-800">
-                      <Settings size={32} className="text-gray-600 dark:text-gray-400" />
+                      <Icon as={Settings} size={24} className="text-gray-600 dark:text-gray-100" />
                     </View>
                     <View className="flex-1">
                       <CardTitle>Settings</CardTitle>

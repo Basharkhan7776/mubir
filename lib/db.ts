@@ -1,18 +1,10 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { DatabaseSchema } from './types';
+import { seedData } from './seedData';
 
 const DB_FILE = FileSystem.documentDirectory + 'mudir_db.json';
 
-const INITIAL_DB: DatabaseSchema = {
-    meta: {
-        appVersion: '1.0.0',
-        exportDate: new Date().toISOString(),
-        userCurrency: '₹',
-        organizationName: '',
-    },
-    collections: [],
-    ledger: [],
-};
+const INITIAL_DB: DatabaseSchema = seedData;
 
 class JsonDb {
     async init(): Promise<DatabaseSchema> {
