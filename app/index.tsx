@@ -3,15 +3,30 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Text } from '@/components/ui/text';
 import { Link, Stack } from 'expo-router';
 import { LayoutList, Settings, Users } from 'lucide-react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import { Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { createStaggeredAnimation } from '@/lib/animations';
 import { Icon } from '@/components/ui/icon';
-
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/lib/store';
+import { completeOnboarding } from '@/lib/store/slices/settingsSlice';
+import { setCollections } from '@/lib/store/slices/inventorySlice';
+import { setLedger } from '@/lib/store/slices/ledgerSlice';
+import { seedDatabase } from '@/lib/seed';
+import { seedData } from '@/lib/seedData';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const dispatch = useDispatch();
+  const isNewUser = useSelector((state: RootState) => state.settings.isNewUser);
+
+  // Silently complete onboarding on first launch to clear the flag
+  React.useEffect(() => {
+    if (isNewUser) {
+      dispatch(completeOnboarding());
+    }
+  }, [isNewUser]);
 
   return (
     <>

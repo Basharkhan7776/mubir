@@ -10,7 +10,7 @@ import { RootState } from '@/lib/store';
 import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { ArrowDownLeft, ArrowUpRight, Search, Edit, X, Check, Trash2, Printer } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { FlatList, View, Pressable, Platform, ActivityIndicator } from 'react-native';
+import { FlatList, View, Pressable, Platform, ActivityIndicator, InteractionManager } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { useColorScheme } from 'nativewind';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -19,9 +19,18 @@ import { generateLedgerPDF } from '@/lib/pdfGenerator';
 export default function PartyScreen() {
     const { partyId } = useLocalSearchParams<{ partyId: string }>();
     const router = useRouter();
-    const entry = useSelector((state: RootState) =>
+    const entryStore = useSelector((state: RootState) =>
         state.ledger.entries.find((e) => e.organization.id === partyId)
     );
+    // Local cache to keep data alive during deletion animation
+    const [entry, setEntry] = useState(entryStore);
+
+    React.useEffect(() => {
+        if (entryStore) {
+            setEntry(entryStore);
+        }
+    }, [entryStore]);
+
     const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
     const orgName = useSelector((state: RootState) => state.settings.organizationName);
     const dispatch = useDispatch();
@@ -34,9 +43,10 @@ export default function PartyScreen() {
     const [description, setDescription] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [isEditingOrg, setIsEditingOrg] = useState(false);
-    const [editedOrgName, setEditedOrgName] = useState(entry?.organization.name || '');
-    const [editedOrgPhone, setEditedOrgPhone] = useState(entry?.organization.phone || '');
-    const [editedOrgEmail, setEditedOrgEmail] = useState(entry?.organization.email || '');
+    // Initialize with safe navigation operators as entry might be stale but valid
+    const [editedOrgName, setEditedOrgName] = useState(entry?.organization?.name ?? '');
+    const [editedOrgPhone, setEditedOrgPhone] = useState(entry?.organization?.phone ?? '');
+    const [editedOrgEmail, setEditedOrgEmail] = useState(entry?.organization?.email ?? '');
     const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
     const [editedTxnAmount, setEditedTxnAmount] = useState('');
     const [editedTxnRemark, setEditedTxnRemark] = useState('');
@@ -63,16 +73,17 @@ export default function PartyScreen() {
     }
 
     const handleDeleteOrg = () => {
+        // Navigate to the list screen first
         if (navigation.canGoBack()) {
             router.back();
         } else {
             router.replace('/ledger');
         }
 
-        // Dispatch delete after navigation to prevent "Not Found" state flash or navigation errors
+        // Delete after navigation transition is complete (increased timeout for safety)
         setTimeout(() => {
             dispatch(deleteOrganization(partyId));
-        }, 100);
+        }, 1000);
     };
 
     const handleTransaction = (type: 'CREDIT' | 'DEBIT') => {

@@ -10,16 +10,25 @@ import { RootState } from '@/lib/store';
 import { Link, Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Plus, Trash2, Settings, Search } from 'lucide-react-native';
 import React, { useState, useMemo } from 'react';
-import { FlatList, View, Pressable } from 'react-native';
+import { FlatList, View, Pressable, ScrollView, Platform, InteractionManager } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { DynamicFieldRenderer } from '@/components/inventory/DynamicFieldRenderer';
 
 export default function CatalogScreen() {
     const { catalogId } = useLocalSearchParams<{ catalogId: string }>();
     const router = useRouter();
-    const collection = useSelector((state: RootState) =>
+    const collectionStore = useSelector((state: RootState) =>
         state.inventory.collections.find((c) => c.id === catalogId)
     );
+    // Keep alive
+    const [collection, setCollection] = useState(collectionStore);
+
+    React.useEffect(() => {
+        if (collectionStore) {
+            setCollection(collectionStore);
+        }
+    }, [collectionStore]);
+
     const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
     const dispatch = useDispatch();
 
@@ -50,9 +59,10 @@ export default function CatalogScreen() {
             router.replace('/inventory');
         }
 
+        // Dispatch after navigation transition (increased timeout)
         setTimeout(() => {
             dispatch(deleteCollection(catalogId));
-        }, 100);
+        }, 1000);
     };
 
     const handleAddItem = () => {

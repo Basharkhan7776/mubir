@@ -6,6 +6,7 @@ interface SettingsState {
   organizationName: string;
   userCurrency: string;
   exportDate: string;
+  isNewUser?: boolean;
 }
 
 const initialState: SettingsState = {
@@ -13,6 +14,7 @@ const initialState: SettingsState = {
   organizationName: '',
   userCurrency: '₹',
   exportDate: new Date().toISOString(),
+  isNewUser: true,
 };
 
 const settingsSlice = createSlice({
@@ -24,6 +26,9 @@ const settingsSlice = createSlice({
       state.organizationName = action.payload.organizationName;
       state.userCurrency = action.payload.userCurrency;
       state.exportDate = action.payload.exportDate;
+      if (action.payload.isNewUser !== undefined) {
+        state.isNewUser = action.payload.isNewUser;
+      }
     },
     updateOrganizationName: (state, action: PayloadAction<string>) => {
       state.organizationName = action.payload;
@@ -31,8 +36,11 @@ const settingsSlice = createSlice({
     updateCurrency: (state, action: PayloadAction<string>) => {
       state.userCurrency = action.payload;
     },
+    completeOnboarding: (state) => {
+      state.isNewUser = false;
+    },
   },
 });
 
-export const { setSettings, updateOrganizationName, updateCurrency } = settingsSlice.actions;
+export const { setSettings, updateOrganizationName, updateCurrency, completeOnboarding } = settingsSlice.actions;
 export default settingsSlice.reducer;

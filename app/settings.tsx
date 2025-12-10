@@ -16,6 +16,7 @@ import { setCollections } from '@/lib/store/slices/inventorySlice';
 import { setLedger } from '@/lib/store/slices/ledgerSlice';
 import { exportData, importData } from '@/lib/utils/export-import';
 import { Icon } from '@/components/ui/icon';
+import { seedDatabase, clearDatabase } from '@/lib/seed';
 
 const CURRENCIES = [
     { value: '₹', label: '₹ Indian Rupee' },
@@ -138,6 +139,45 @@ export default function SettingsScreen() {
                         >
                             <Icon as={FileUp} size={20} className="mr-2 text-foreground" />
                             <Text>{isImporting ? 'Importing...' : 'Import Data'}</Text>
+                        </Button>
+                    </View>
+
+                    <View className="flex-row gap-4 mt-2">
+                        <Button
+                            className="flex-1"
+                            variant="outline"
+                            onPress={async () => {
+                                const success = await seedDatabase();
+                                if (success) {
+                                    // Import seedData directly to dispatch, to avoid async race or file read issues
+                                    // We use require here to ensure we get the fresh data if it was somehow mutable, but standard import is fine too.
+                                    // Since we need it inside this scope and didn't import it at top (or did we?), let's use the top-level import if available or require.
+                                    // To be strictly correct with type checking, I'll assume seedData is exported.
+                                    const { seedData } = require('@/lib/seedData');
+                                    dispatch(setCollections(seedData.collections));
+                                    dispatch(setLedger(seedData.ledger));
+
+                                    setSuccessMessage('Database seeded successfully');
+                                    setSuccessDialogOpen(true);
+                                }
+                            }}
+                        >
+                            <Text>Seed Database</Text>
+                        </Button>
+                        <Button
+                            className="flex-1"
+                            variant="destructive"
+                            onPress={async () => {
+                                const success = await clearDatabase();
+                                if (success) {
+                                    dispatch(setCollections([]));
+                                    dispatch(setLedger([]));
+                                    setSuccessMessage('Database cleared');
+                                    setSuccessDialogOpen(true);
+                                }
+                            }}
+                        >
+                            <Text className="text-destructive-foreground">Clear Database</Text>
                         </Button>
                     </View>
                 </View>

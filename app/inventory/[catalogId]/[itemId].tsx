@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Pressable } from 'react-native';
+import { View, ScrollView, Image, Platform, InteractionManager, Pressable } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/lib/store';
@@ -23,9 +23,18 @@ export default function ItemDetailScreen() {
 
   const currencySymbol = useSelector((state: RootState) => state.settings.userCurrency);
 
-  const item = collection?.data.find((i) => i.id === itemId);
+  const itemStore = collection?.data.find((i) => i.id === itemId);
+  // Keep alive
+  const [item, setItem] = useState(itemStore);
+
+  React.useEffect(() => {
+    if (itemStore) {
+      setItem(itemStore);
+    }
+  }, [itemStore]);
 
   const [isEditing, setIsEditing] = useState(false);
+  // Use cached item safe operators
   const [editedValues, setEditedValues] = useState<Record<string, any>>(item?.values || {});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -57,10 +66,10 @@ export default function ItemDetailScreen() {
       router.replace(`/inventory/${catalogId}`);
     }
 
-    // Dispatch delete after navigation to prevent "Not Found" state flash
+    // Dispatch after navigation (increased timeout)
     setTimeout(() => {
       dispatch(deleteItem({ collectionId: catalogId, itemId }));
-    }, 100);
+    }, 1000);
   };
 
   const handleSave = () => {
@@ -104,7 +113,7 @@ export default function ItemDetailScreen() {
       case 'date':
         return new Date(value).toLocaleDateString();
       case 'currency':
-        return `${currencySymbol}${value}`;
+        return `${currencySymbol}${value} `;
       default:
         return value.toString();
     }

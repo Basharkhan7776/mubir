@@ -4,7 +4,17 @@ import { seedData } from './seedData';
 
 const DB_FILE = FileSystem.documentDirectory + 'mudir_db.json';
 
-const INITIAL_DB: DatabaseSchema = seedData;
+const INITIAL_DB: DatabaseSchema = {
+    meta: {
+        appVersion: '1.0.0',
+        exportDate: new Date().toISOString(),
+        userCurrency: '₹',
+        organizationName: '',
+        isNewUser: false, // Auto-seeded, so technically not "new" in need of prompt
+    },
+    collections: seedData.collections,
+    ledger: seedData.ledger,
+};
 
 class JsonDb {
     async init(): Promise<DatabaseSchema> {
@@ -13,7 +23,7 @@ class JsonDb {
             const fileInfo = await FileSystem.getInfoAsync(DB_FILE);
             console.log('File info:', fileInfo);
             if (!fileInfo.exists) {
-                console.log('DB file does not exist, creating with initial data');
+                console.log('DB file does not exist, creating with initial seed data');
                 await this.write(INITIAL_DB);
                 return INITIAL_DB;
             }

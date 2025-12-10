@@ -53,6 +53,7 @@ export type AppMeta = {
   exportDate: string;
   userCurrency: string;
   organizationName: string;
+  isNewUser?: boolean;
 };
 
 export type DatabaseSchema = {
