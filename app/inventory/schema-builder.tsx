@@ -11,6 +11,7 @@ import { SchemaField } from '@/lib/types';
 import { Plus } from 'lucide-react-native';
 import { useDispatch } from 'react-redux';
 import { addCollection } from '@/lib/store/slices/inventorySlice';
+import { Icon } from '@/components/ui/icon';
 
 export default function SchemaBuilderScreen() {
   const router = useRouter();
@@ -145,7 +146,7 @@ export default function SchemaBuilderScreen() {
           <View className="flex-row items-center justify-between">
             <Text className="text-xl font-bold">Fields</Text>
             <Button onPress={addField} size="sm">
-              <Plus size={16} className="text-primary-foreground mr-1" />
+              <Icon as={Plus} size={16} className="text-primary-foreground mr-1" />
               <Text className="text-primary-foreground">Add Field</Text>
             </Button>
           </View>

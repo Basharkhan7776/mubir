@@ -7,11 +7,18 @@ import { db } from '@/lib/db';
 const listenerMiddleware = createListenerMiddleware();
 
 // Listener to save state changes to DB
+// Listener to save state changes to DB
 listenerMiddleware.startListening({
     predicate: (action, currentState, previousState) => {
-        return true; // Naive: save on every action for now. Optimize later.
+        return true;
     },
     effect: async (action, listenerApi) => {
+        // Cancel any pending write task
+        listenerApi.cancelActiveListeners();
+
+        // Wait for 1000ms of inactivity (debounce)
+        await listenerApi.delay(1000);
+
         const state = listenerApi.getState() as RootState;
         await db.write({
             meta: {
@@ -19,6 +26,7 @@ listenerMiddleware.startListening({
                 exportDate: new Date().toISOString(),
                 userCurrency: state.settings.userCurrency,
                 organizationName: state.settings.organizationName,
+                isNewUser: state.settings.isNewUser,
             },
             collections: state.inventory.collections,
             ledger: state.ledger.entries,
