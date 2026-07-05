@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Github, Apple, Play, Download } from "lucide-react";
 import { PhoneMockup } from "./PhoneMockup";
+import { Button } from "./ui/button";
 
 export const Hero: React.FC = () => {
   const containerVariants = {
@@ -96,6 +97,7 @@ export const Hero: React.FC = () => {
                 <span className="font-medium text-sm md:text-base">GitHub</span>
               </button>
             </a>
+            <Button>Hello</Button>
           </motion.div>
         </motion.div>
 
