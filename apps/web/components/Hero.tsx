@@ -1,10 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Github, Apple, Play, Download } from "lucide-react";
+import { Github, Apple, Play, Download, LogIn } from "lucide-react";
 import { PhoneMockup } from "./PhoneMockup";
-import { Button } from "./ui/button";
+import { useNavigate } from "react-router";
 
 export const Hero: React.FC = () => {
+  const router = useNavigate();
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -76,17 +77,18 @@ export const Hero: React.FC = () => {
                 Google Play
               </span>
             </button> */}
-            <a href="/Mudir-beta.apk" download>
-              <button className="group flex items-center gap-2 md:gap-3 px-5 py-2 md:px-6 md:py-3 border border-black rounded-full hover:bg-black hover:text-white transition-all duration-300">
-                <Download
-                  size={18}
-                  className="md:w-5 md:h-5 group-hover:fill-white transition-colors"
-                />
-                <span className="font-medium text-sm md:text-base">
-                  Download
-                </span>
-              </button>
-            </a>
+            <button
+              className="group flex items-center gap-2 md:gap-3 px-5 py-2 md:px-6 md:py-3 border border-black rounded-full hover:bg-black hover:text-white transition-all duration-300"
+              onClick={() => {
+                router("/app");
+              }}
+            >
+              <LogIn
+                size={18}
+                className="md:w-5 md:h-5 group-hover:fill-white transition-colors"
+              />
+              <span className="font-medium text-sm md:text-base">Login</span>
+            </button>
             <a
               href="https://github.com/basharkhan7776/mudir"
               target="_blank"
@@ -97,7 +99,6 @@ export const Hero: React.FC = () => {
                 <span className="font-medium text-sm md:text-base">GitHub</span>
               </button>
             </a>
-            <Button>Hello</Button>
           </motion.div>
         </motion.div>
 
