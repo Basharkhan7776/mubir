@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Separator } from "./ui/separator";
+import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 
 const icons = {
   Box,
@@ -81,7 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar {...props} className="border rounded-lg m-4 h-[calc(100vh-)]">
-      <SidebarHeader>
+      <SidebarHeader className="rounded-lg">
         <div className="flex items-center justify-center gap-3">
           <img src={Logo} alt="Logo" className="size-8 p-1 border rounded-lg" />
           <span className="font-extrabold text-3xl">Mudir.</span>
@@ -133,31 +134,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
           <ChevronRight />
         </Button>
-        <DropdownMenu>
+        <Dialog>
           <Button variant="ghost" className="flex">
-            <DropdownMenuTrigger className="w-full flex  items-center justify-between gap-2">
+            <DialogTrigger className="w-full flex  items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Settings />
                 Settings
               </div>
               <ChevronRight />
-            </DropdownMenuTrigger>
+            </DialogTrigger>
           </Button>
-          <DropdownMenuContent>
-            <DropdownMenuItem>
-              <Settings />
-              <span>Settings</span>
-              <Separator orientation="vertical" />
-              <Button variant="ghost">
+          <DialogContent className="w-44">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Settings />
+                <span>Settings</span>
+              </div>
+            </div>
+            <Separator orientation="vertical" />
+            <Button
+              variant="ghost"
+              className="flex w-full items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
                 <RefreshCcw />
                 Sync
-              </Button>
-              <Button variant="ghost">
-                <LogOut /> Sign out
-              </Button>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </div>
+              <ChevronRight />
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex w-full items-center justify-between gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <LogOut />
+                Sign out
+              </div>
+              <ChevronRight />
+            </Button>
+          </DialogContent>
+        </Dialog>
       </SidebarFooter>
     </Sidebar>
   );
