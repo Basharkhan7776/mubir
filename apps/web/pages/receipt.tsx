@@ -73,7 +73,7 @@ export default function Receipt() {
   };
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 pl-0 overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
       {/* Left Pane: Receipts List */}
       <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
         <div className="flex items-center justify-between px-1">
@@ -95,8 +95,8 @@ export default function Receipt() {
           />
         </div>
 
-        <ScrollArea className="flex-1 -mx-2 px-2">
-          <div className="flex flex-col gap-2.5 pr-3">
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col gap-2.5 pr-1">
             {filteredReceipts.map((r) => {
               const isSelected = selectedReceiptId === r.id;
               const total = getReceiptTotal(r);
@@ -145,28 +145,27 @@ export default function Receipt() {
         </ScrollArea>
       </div>
 
-      {/* Right Pane: Invoice Preview & Actions */}
-      <div className="flex-1 h-full flex flex-col gap-6 border border-sidebar-border rounded-lg bg-sidebar p-6 shadow-sm overflow-hidden min-w-0">
+      {/* Right Pane: Full-Width Enterprise Invoice View */}
+      <div className="flex-1 h-full flex flex-col border border-sidebar-border rounded-lg bg-background shadow-xs overflow-hidden min-w-0">
         {activeReceipt ? (
           <>
-            {/* Top Toolbar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sidebar-border">
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col">
-                  <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-                    {activeReceipt.customerName}
-                  </h1>
-                  <span className="text-xs text-muted-foreground font-mono">
-                    {new Date(activeReceipt.date).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
+            {/* Top Header Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 sm:px-8 py-5 border-b border-sidebar-border bg-sidebar shrink-0">
+              <div className="flex flex-col">
+                <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+                  {activeReceipt.customerName}
+                </h1>
+                <span className="text-xs text-muted-foreground font-mono mt-0.5">
+                  Invoice Date:{" "}
+                  {new Date(activeReceipt.date).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Button
                   size="sm"
                   variant="outline"
@@ -186,61 +185,32 @@ export default function Receipt() {
               </div>
             </div>
 
-            {/* Document Preview Area */}
-            <ScrollArea className="flex-1 bg-background border border-sidebar-border rounded-lg p-4 sm:p-8">
-              <div className="max-w-3xl mx-auto bg-card border border-sidebar-border rounded-lg p-6 sm:p-10 shadow-sm flex flex-col gap-8 text-foreground">
-                {/* Invoice Header */}
-                <div className="flex flex-col sm:flex-row justify-between gap-6">
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="size-8 rounded-md bg-foreground flex items-center justify-center text-background font-black text-lg">
-                        M
-                      </div>
-                      <span className="font-black text-2xl tracking-tighter text-foreground">
-                        {seedData.meta?.organizationName || "Mudir Store"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground max-w-xs">
-                      Smart Agentic Inventory, Ledger & Receipt Management
-                      Suite.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:items-end gap-1">
-                    <span className="text-3xl font-black tracking-tight text-muted-foreground/30">
-                      INVOICE
-                    </span>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted text-foreground border border-sidebar-border text-[10px] uppercase font-bold">
-                        <CheckCircle2 className="size-3" /> Paid & Settled
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="bg-sidebar-border" />
-
+            {/* Full-Width Document View Area */}
+            <ScrollArea className="flex-1 p-6 sm:p-8">
+              <div className="w-full flex flex-col gap-8 text-foreground max-w-none">
                 {/* Billed To & Dates */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-1.5">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Billed To
+                      Billed To Customer
                     </span>
-                    <span className="font-extrabold text-lg text-foreground">
+                    <span className="font-extrabold text-xl text-foreground">
                       {activeReceipt.customerName}
                     </span>
                     {activeReceipt.phone && (
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono">
                         <Phone className="size-3 text-foreground" />{" "}
                         {activeReceipt.phone}
                       </span>
                     )}
                     {activeReceipt.description && (
-                      <span className="text-xs text-muted-foreground mt-1 bg-muted/40 p-2 rounded-md border border-sidebar-border">
+                      <span className="text-xs text-muted-foreground mt-1.5 bg-muted/40 p-2.5 rounded-md border border-sidebar-border">
                         "{activeReceipt.description}"
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-col sm:items-end gap-1.5">
+
+                  <div className="flex flex-col sm:items-end justify-between gap-4">
                     <div className="flex flex-col sm:items-end">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                         Date of Issue
@@ -256,23 +226,15 @@ export default function Receipt() {
                         )}
                       </span>
                     </div>
-                    <div className="flex flex-col sm:items-end mt-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                        Payment Currency
-                      </span>
-                      <span className="font-mono text-sm font-semibold text-foreground">
-                        INR (₹)
-                      </span>
-                    </div>
                   </div>
                 </div>
 
-                {/* Line Items Table */}
-                <div className="border border-sidebar-border rounded-lg overflow-hidden">
-                  <Table>
+                {/* Full-Width Line Items Table */}
+                <div className="w-full border border-sidebar-border rounded-lg overflow-hidden">
+                  <Table className="w-full">
                     <TableHeader className="bg-muted">
                       <TableRow className="border-sidebar-border">
-                        <TableHead className="w-12 font-bold text-foreground">
+                        <TableHead className="w-14 font-bold text-foreground">
                           #
                         </TableHead>
                         <TableHead className="font-bold text-foreground">
@@ -322,19 +284,19 @@ export default function Receipt() {
                   </Table>
                 </div>
 
-                {/* Summary & Footer */}
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-2">
-                  <div className="flex flex-col gap-1 max-w-xs text-xs text-muted-foreground">
-                    <span className="font-bold text-foreground">
+                {/* Full-Width Summary & Footer */}
+                <div className="w-full flex flex-col sm:flex-row justify-between items-start gap-8 pt-2">
+                  <div className="flex flex-col gap-1.5 max-w-sm text-xs text-muted-foreground">
+                    <span className="font-bold text-foreground uppercase tracking-wider text-[11px]">
                       Payment Terms & Notes
                     </span>
-                    <p>
+                    <p className="leading-relaxed">
                       All goods sold are non-returnable without original
-                      invoice. This is a computer-generated receipt.
+                      invoice. This is an enterprise computer-generated record.
                     </p>
                   </div>
 
-                  <div className="w-full sm:w-64 flex flex-col gap-3 bg-muted/30 p-4 rounded-lg border border-sidebar-border">
+                  <div className="w-full sm:w-72 flex flex-col gap-3 bg-muted/40 p-5 rounded-lg border border-sidebar-border">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
                       <span className="font-mono font-bold text-foreground">
@@ -360,13 +322,6 @@ export default function Receipt() {
                     </div>
                   </div>
                 </div>
-
-                {/* Footer branding */}
-                <div className="text-center pt-6 border-t border-sidebar-border border-dashed">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">
-                    Thank you for your business! Powered by Mudir.
-                  </span>
-                </div>
               </div>
             </ScrollArea>
           </>
@@ -375,7 +330,7 @@ export default function Receipt() {
             <ReceiptText className="size-12 stroke-1 opacity-50" />
             <p className="font-semibold text-base">No receipt selected</p>
             <p className="text-xs">
-              Select a receipt from the left pane to view or print the invoice.
+              Select a receipt from the middle pane to view or print the invoice.
             </p>
           </div>
         )}

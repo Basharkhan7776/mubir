@@ -13,25 +13,61 @@ import {
   Building2,
   ReceiptText,
   TrendingUp,
-  TrendingDown,
   DollarSign,
-  Package,
   Layers,
   FileText,
   ArrowRight,
   Info,
-  Database,
-  Calendar,
-  ShieldCheck,
   Cpu,
+  Sparkles,
+  Plus,
+  Wallet,
+  ArrowUpRight,
+  ShieldCheck,
+  BarChart3,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+function getItemTitle(item: any, collection?: any): string {
+  if (!item || !item.values) return "Untitled Item";
+  if (collection?.schema?.[0]?.key && item.values[collection.schema[0].key]) {
+    return item.values[collection.schema[0].key];
+  }
+  return (
+    item.values.name ||
+    item.values.itemName ||
+    item.values.product ||
+    item.values.title ||
+    "Untitled Item"
+  );
+}
+
+function getItemSubtitle(item: any, collection?: any): string {
+  if (!item || !item.values) return "";
+  if (collection?.schema?.[1]) {
+    const field = collection.schema[1];
+    const val = item.values[field.key];
+    if (val !== undefined && val !== null && val !== "") {
+      return `${field.label}: ${val}`;
+    }
+  }
+  if (item.values.brand) return `Brand: ${item.values.brand}`;
+  if (item.values.size) return `Size: ${item.values.size}`;
+  if (item.values.category) return `Category: ${item.values.category}`;
+  return "";
+}
+
+function getItemPrice(item: any): number {
+  return Number(item.values?.price) || 0;
+}
+
+function getItemStock(item: any): number {
+  return Number(item.values?.quantity || item.values?.stock) || 0;
+}
 
 export default function DashboardOverview() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Calculate high-level numbers
   const {
     totalCollections,
     totalItems,
@@ -52,7 +88,7 @@ export default function DashboardOverview() {
     cols.forEach((c) => {
       itemsCount += c.data.length;
       c.data.forEach((i) => {
-        invValue += (Number(i.price) || 0) * (Number(i.quantity) || 0);
+        invValue += getItemPrice(i) * getItemStock(i);
       });
     });
 
@@ -85,48 +121,40 @@ export default function DashboardOverview() {
     };
   }, []);
 
-  // Universal search logic
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return { items: [], parties: [], txns: [], receipts: [] };
 
-    // Search Inventory Items
-    const matchedItems: Array<{ collectionName: string; name: string; sku: string; price: number; stock: number }> = [];
+    const matchedItems: Array<{
+      collection: any;
+      item: any;
+      title: string;
+      subtitle: string;
+      price: number;
+      stock: number;
+    }> = [];
+
     seedData.collections.forEach((c) => {
-      if (c.name.toLowerCase().includes(query) || (c.description && c.description.toLowerCase().includes(query))) {
-        c.data.forEach((i) => {
+      c.data.forEach((item) => {
+        const values = Object.values(item.values).map(String);
+        const matches = values.some((v) => v.toLowerCase().includes(query));
+        if (matches) {
           matchedItems.push({
-            collectionName: c.name,
-            name: i.name,
-            sku: i.sku || "N/A",
-            price: Number(i.price) || 0,
-            stock: Number(i.quantity) || 0,
+            collection: c,
+            item,
+            title: getItemTitle(item, c),
+            subtitle: getItemSubtitle(item, c),
+            price: getItemPrice(item),
+            stock: getItemStock(item),
           });
-        });
-      } else {
-        c.data.forEach((i) => {
-          if (
-            i.name.toLowerCase().includes(query) ||
-            (i.sku && i.sku.toLowerCase().includes(query)) ||
-            (i.category && i.category.toLowerCase().includes(query))
-          ) {
-            matchedItems.push({
-              collectionName: c.name,
-              name: i.name,
-              sku: i.sku || "N/A",
-              price: Number(i.price) || 0,
-              stock: Number(i.quantity) || 0,
-            });
-          }
-        });
-      }
+        }
+      });
     });
 
-    // Search Parties & Transactions
     const matchedParties: Array<{ id: string; name: string; phone?: string; email?: string }> = [];
     const matchedTxns: Array<{ partyName: string; type: string; amount: number; remark: string; date: string }> = [];
-    seedData.ledger.forEach((item) => {
-      const org = item.organization;
+    seedData.ledger.forEach((entry) => {
+      const org = entry.organization;
       if (
         org.name.toLowerCase().includes(query) ||
         (org.phone && org.phone.toLowerCase().includes(query)) ||
@@ -134,23 +162,22 @@ export default function DashboardOverview() {
       ) {
         matchedParties.push({ id: org.id, name: org.name, phone: org.phone, email: org.email });
       }
-      item.transactions.forEach((t) => {
+      entry.transactions.forEach((t) => {
         if (
-          t.remark.toLowerCase().includes(query) ||
+          (t.remark && t.remark.toLowerCase().includes(query)) ||
           (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(query)))
         ) {
           matchedTxns.push({
             partyName: org.name,
             type: t.type,
             amount: Number(t.amount) || 0,
-            remark: t.remark,
+            remark: t.remark || "",
             date: t.date,
           });
         }
       });
     });
 
-    // Search Receipts
     const matchedReceipts = seedData.receipts.filter((r) => {
       return (
         r.customerName.toLowerCase().includes(query) ||
@@ -175,35 +202,16 @@ export default function DashboardOverview() {
     searchResults.receipts.length > 0;
 
   return (
-    <div className="flex h-screen w-full flex-col gap-6 p-6 overflow-hidden bg-background text-foreground">
-      {/* Universal Search Engine Header */}
-      <div className="flex flex-col gap-3 shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="size-9 rounded-md bg-foreground text-background flex items-center justify-center font-black">
-              M
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold tracking-tight text-foreground">
-                Universal Search & Dashboard
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Search anything across catalogs, ledger accounts, and invoices instantly.
-              </p>
-            </div>
-          </div>
-          <Badge variant="outline" className="font-mono text-xs border-sidebar-border bg-muted text-foreground self-start sm:self-center gap-1.5 px-2.5 py-1">
-            <Cpu className="size-3" /> Universal Index Active
-          </Badge>
-        </div>
-
-        <div className="relative w-full">
+    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
+      {/* Left Pane: Search + Results */}
+      <div className="w-[420px] h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
+        <div className="relative shrink-0">
           <Search className="absolute left-3.5 top-3.5 size-5 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Search across inventories, parties, ledger entries, SKUs, customer receipts..."
+            placeholder="Search across inventories, parties, ledger entries, receipts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-11 h-12 text-base font-medium bg-sidebar border-sidebar-border rounded-lg shadow-xs focus-visible:ring-1"
+            className="pl-11 h-12 text-base font-medium bg-background border-sidebar-border rounded-lg shadow-xs focus-visible:ring-1"
           />
           {searchQuery && (
             <span
@@ -214,354 +222,448 @@ export default function DashboardOverview() {
             </span>
           )}
         </div>
-      </div>
 
-      {/* Main Content Area */}
-      <ScrollArea className="flex-1 -mx-6 px-6 overflow-auto">
-        {searchQuery.trim() ? (
-          /* Universal Search Results View */
-          <div className="flex flex-col gap-6 pb-8">
-            <div className="flex items-center justify-between border-b border-sidebar-border pb-3">
-              <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                Search Results for "{searchQuery}"
-              </span>
-              <span className="text-xs font-mono text-muted-foreground">
-                Found {searchResults.items.length + searchResults.parties.length + searchResults.txns.length + searchResults.receipts.length} total matches
-              </span>
-            </div>
-
-            {!hasSearchResults && (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground border border-sidebar-border border-dashed rounded-lg">
-                <Search className="size-10 stroke-1 opacity-40" />
-                <p className="font-semibold text-base">No results found across any module</p>
-                <p className="text-xs">Try searching for item names, SKUs, party names, remarks, or receipt numbers.</p>
-              </div>
-            )}
-
-            {/* Matching Inventory Items */}
-            {searchResults.items.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-foreground font-bold text-sm">
-                    <Box className="size-4" /> Matching Inventory Items ({searchResults.items.length})
-                  </div>
-                  <span
-                    onClick={() => navigate("/app/inventory")}
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  >
-                    Go to Inventory <ArrowRight className="size-3" />
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {searchResults.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => navigate("/app/inventory")}
-                      className="p-3.5 rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-colors flex flex-col gap-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-foreground truncate">{item.name}</span>
-                        <Badge variant="outline" className="text-[10px] font-mono border-sidebar-border bg-background">
-                          SKU: {item.sku}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Catalog: {item.collectionName}</span>
-                        <span className="font-mono font-bold text-foreground">₹{item.price.toLocaleString("en-IN")} ({item.stock} in stock)</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Matching Ledger Parties */}
-            {searchResults.parties.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-foreground font-bold text-sm">
-                    <Building2 className="size-4" /> Matching Parties ({searchResults.parties.length})
-                  </div>
-                  <span
-                    onClick={() => navigate("/app/ledger")}
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  >
-                    Go to Ledger <ArrowRight className="size-3" />
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {searchResults.parties.map((party, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => navigate("/app/ledger")}
-                      className="p-3.5 rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-colors flex flex-col gap-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-foreground">{party.name}</span>
-                        <Badge variant="outline" className="text-[10px] border-sidebar-border bg-background">
-                          Party
-                        </Badge>
-                      </div>
-                      <span className="text-xs font-mono text-muted-foreground">{party.phone || party.email || "No contact info"}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Matching Ledger Transactions */}
-            {searchResults.txns.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-foreground font-bold text-sm">
-                    <FileText className="size-4" /> Matching Ledger Transactions ({searchResults.txns.length})
-                  </div>
-                  <span
-                    onClick={() => navigate("/app/ledger")}
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  >
-                    Go to Ledger <ArrowRight className="size-3" />
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {searchResults.txns.map((t, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => navigate("/app/ledger")}
-                      className="p-3.5 rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-colors flex items-center justify-between gap-3"
-                    >
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <span className="font-bold text-sm text-foreground truncate">{t.remark || "No remark"}</span>
-                        <span className="text-xs text-muted-foreground">Party: {t.partyName} • {new Date(t.date).toLocaleDateString("en-IN")}</span>
-                      </div>
-                      <Badge variant="outline" className="font-mono font-bold text-xs shrink-0 border-sidebar-border bg-background">
-                        {t.type === "DEBIT" ? "-" : "+"} ₹{t.amount.toLocaleString("en-IN")} ({t.type})
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Matching Receipts */}
-            {searchResults.receipts.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-foreground font-bold text-sm">
-                    <ReceiptText className="size-4" /> Matching Receipts / Invoices ({searchResults.receipts.length})
-                  </div>
-                  <span
-                    onClick={() => navigate("/app/receipts")}
-                    className="text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-                  >
-                    Go to Receipts <ArrowRight className="size-3" />
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {searchResults.receipts.map((r, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => navigate("/app/receipts")}
-                      className="p-3.5 rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-colors flex flex-col gap-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm text-foreground truncate">{r.customerName}</span>
-                        <Badge variant="outline" className="text-[10px] font-mono border-sidebar-border bg-background">
-                          #{r.id}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-muted-foreground truncate">{r.description || `${r.items.length} items included`}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          /* Normal Dashboard Numbers & Metadata View */
-          <div className="flex flex-col gap-8 pb-10">
-            {/* System Numbers & Key Metrics */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-extrabold uppercase tracking-wider text-foreground flex items-center gap-2">
-                  <TrendingUp className="size-4" /> Core System Numbers & Metrics
-                </h2>
-                <span className="text-xs text-muted-foreground font-mono">
-                  Live Sync • Aggregated from local storage
+        <ScrollArea className="flex-1 -mx-2 px-2">
+          {searchQuery.trim() ? (
+            <div className="flex flex-col gap-3 pr-3 pb-4">
+              <div className="flex items-center justify-between border-b border-sidebar-border pb-2">
+                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                  Results
+                </span>
+                <span className="text-xs font-mono text-muted-foreground">
+                  {searchResults.items.length + searchResults.parties.length + searchResults.txns.length + searchResults.receipts.length} matches
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card
-                  onClick={() => navigate("/app/inventory")}
-                  className="rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-all shadow-xs"
-                >
-                  <CardContent className="p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-xs font-bold uppercase tracking-wider">Inventory Items</span>
-                      <Box className="size-4" />
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-2xl font-mono font-extrabold text-foreground">{totalItems}</span>
-                      <span className="text-xs text-muted-foreground">{totalCollections} catalogs</span>
-                    </div>
-                    <Separator className="bg-sidebar-border" />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Est. Total Value</span>
-                      <span className="font-mono font-bold text-foreground">₹{totalInventoryValue.toLocaleString("en-IN")}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+              {!hasSearchResults && (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground border border-sidebar-border border-dashed rounded-lg">
+                  <Search className="size-10 stroke-1 opacity-40" />
+                  <p className="font-semibold text-sm">No results found</p>
+                  <p className="text-xs">Try different keywords.</p>
+                </div>
+              )}
 
-                <Card
-                  onClick={() => navigate("/app/ledger")}
-                  className="rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-all shadow-xs"
-                >
-                  <CardContent className="p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-xs font-bold uppercase tracking-wider">Ledger Accounts</span>
-                      <Building2 className="size-4" />
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-2xl font-mono font-extrabold text-foreground">{totalParties}</span>
-                      <span className="text-xs text-muted-foreground">parties registered</span>
-                    </div>
-                    <Separator className="bg-sidebar-border" />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Net Ledger Balance</span>
-                      <span className="font-mono font-bold text-foreground">₹{Math.abs(netBalance).toLocaleString("en-IN")}</span>
-                    </div>
-                  </CardContent>
-                </Card>
+              {searchResults.items.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Box className="size-3.5" /> Items ({searchResults.items.length})
+                    </span>
+                    <span
+                      onClick={() => navigate("/app/inventory")}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      View all
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {searchResults.items.slice(0, 5).map((hit, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => navigate("/app/inventory")}
+                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-sm text-foreground truncate">{hit.title}</span>
+                          <Badge variant="outline" className="text-[9px] font-mono border-sidebar-border bg-sidebar ml-1 shrink-0">{hit.collection.name}</Badge>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
+                          <span>{hit.subtitle}</span>
+                          <span className="font-mono font-semibold text-foreground">₹{hit.price.toLocaleString("en-IN")} ({hit.stock})</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                <Card
-                  onClick={() => navigate("/app/ledger")}
-                  className="rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-all shadow-xs"
-                >
-                  <CardContent className="p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-xs font-bold uppercase tracking-wider">Cash Flow Breakdown</span>
-                      <DollarSign className="size-4" />
-                    </div>
-                    <div className="flex flex-col gap-1 py-0.5 font-mono text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Debit (Given):</span>
-                        <span className="font-bold text-foreground">₹{totalDebit.toLocaleString("en-IN")}</span>
+              {searchResults.parties.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Building2 className="size-3.5" /> Parties ({searchResults.parties.length})
+                    </span>
+                    <span
+                      onClick={() => navigate("/app/ledger")}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      View all
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {searchResults.parties.slice(0, 5).map((party, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => navigate("/app/ledger")}
+                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-sm text-foreground">{party.name}</span>
+                          <Badge variant="outline" className="text-[9px] border-sidebar-border bg-sidebar">Party</Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{party.phone || party.email || "No contact info"}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Credit (Rcvd):</span>
-                        <span className="font-bold text-foreground">₹{totalCredit.toLocaleString("en-IN")}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {searchResults.txns.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <FileText className="size-3.5" /> Transactions ({searchResults.txns.length})
+                    </span>
+                    <span
+                      onClick={() => navigate("/app/ledger")}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      View all
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {searchResults.txns.slice(0, 4).map((t, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => navigate("/app/ledger")}
+                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-sm text-foreground truncate">{t.remark || "No remark"}</span>
+                          <Badge variant="outline" className="font-mono font-bold text-[10px] shrink-0 border-sidebar-border bg-sidebar">
+                            {t.type === "DEBIT" ? "-" : "+"} ₹{t.amount.toLocaleString("en-IN")}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{t.partyName} • {new Date(t.date).toLocaleDateString("en-IN")}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {searchResults.receipts.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <ReceiptText className="size-3.5" /> Receipts ({searchResults.receipts.length})
+                    </span>
+                    <span
+                      onClick={() => navigate("/app/receipts")}
+                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      View all
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {searchResults.receipts.slice(0, 5).map((r, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => navigate("/app/receipts")}
+                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-sm text-foreground truncate">{r.customerName}</span>
+                          <Badge variant="outline" className="text-[9px] font-mono border-sidebar-border bg-sidebar">#{r.id}</Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate">{r.description || `${r.items.length} items`}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-3 text-muted-foreground px-2">
+              <div className="size-12 rounded-full border-2 border-sidebar-border flex items-center justify-center">
+                <Search className="size-5 stroke-1" />
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-sm text-foreground">Universal Search</p>
+                <p className="text-xs mt-0.5">Search across everything instantly.</p>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+      </div>
+
+      {/* Right Pane: Premium Command Center Bento Grid */}
+      <div className="flex-1 h-full border border-sidebar-border rounded-lg bg-background shadow-xs overflow-hidden min-w-0">
+        <div className="flex flex-col h-full p-6 gap-6">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="size-5 text-foreground" />
+                <h2 className="font-extrabold text-xl tracking-tight text-foreground">
+                  Mudir Store Intelligence
+                </h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Real-time agentic oversight across inventory, ledger settlements & invoices.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="font-mono text-[11px] border-sidebar-border bg-sidebar gap-1.5 px-3 py-1"
+              >
+                <Cpu className="size-3.5 text-emerald-600 animate-pulse" /> Live Local Store
+              </Badge>
+            </div>
+          </div>
+
+          {/* Bento Grid Content */}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pr-1 pb-6">
+              {/* Hero Bento Card: Total Store & Cashflow Valuation */}
+              <div className="sm:col-span-2 p-6 rounded-xl border border-sidebar-border bg-gradient-to-br from-card via-card to-muted/40 shadow-xs flex flex-col gap-6 relative overflow-hidden group">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="size-8 rounded-lg bg-foreground text-background flex items-center justify-center font-bold">
+                      <Wallet className="size-4" />
                     </div>
-                    <Separator className="bg-sidebar-border" />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Status</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-sidebar-border bg-background">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground block">
+                        Total Combined Store Valuation
+                      </span>
+                      <span className="text-3xl font-black font-mono tracking-tight text-foreground">
+                        ₹{(totalInventoryValue + totalReceiptsRevenue).toLocaleString("en-IN")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <Badge variant="outline" className="w-fit font-mono text-xs border-sidebar-border bg-background px-2.5 py-1">
+                    Currency: {seedData.meta?.userCurrency || "INR (₹)"}
+                  </Badge>
+                </div>
+
+                <Separator className="bg-sidebar-border/80" />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div
+                    onClick={() => navigate("/app/inventory")}
+                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Box className="size-3.5" /> Inventory Value
+                      </span>
+                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                    </div>
+                    <span className="font-mono font-extrabold text-xl text-foreground">
+                      ₹{totalInventoryValue.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {totalItems} items across {totalCollections} catalogs
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => navigate("/app/receipts")}
+                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <ReceiptText className="size-3.5" /> Billed Revenue
+                      </span>
+                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                    </div>
+                    <span className="font-mono font-extrabold text-xl text-foreground">
+                      ₹{totalReceiptsRevenue.toLocaleString("en-IN")}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {totalReceipts} settled invoices archived
+                    </span>
+                  </div>
+
+                  <div
+                    onClick={() => navigate("/app/ledger")}
+                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Building2 className="size-3.5" /> Net Ledger Balance
+                      </span>
+                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono font-extrabold text-xl text-foreground">
+                        ₹{Math.abs(netBalance).toLocaleString("en-IN")}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 border-sidebar-border bg-sidebar"
+                      >
                         {netBalance > 0 ? "You Give" : netBalance < 0 ? "You Get" : "Settled"}
                       </Badge>
                     </div>
-                  </CardContent>
-                </Card>
-
-                <Card
-                  onClick={() => navigate("/app/receipts")}
-                  className="rounded-lg border border-sidebar-border bg-sidebar hover:bg-muted/50 cursor-pointer transition-all shadow-xs"
-                >
-                  <CardContent className="p-4 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span className="text-xs font-bold uppercase tracking-wider">Invoices & Receipts</span>
-                      <ReceiptText className="size-4" />
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-2xl font-mono font-extrabold text-foreground">{totalReceipts}</span>
-                      <span className="text-xs text-muted-foreground">generated</span>
-                    </div>
-                    <Separator className="bg-sidebar-border" />
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Total Billed Revenue</span>
-                      <span className="font-mono font-bold text-foreground">₹{totalReceiptsRevenue.toLocaleString("en-IN")}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* System Metadata Section */}
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-extrabold uppercase tracking-wider text-foreground flex items-center gap-2">
-                  <Database className="size-4" /> Organization & System Metadata
-                </h2>
-                <span className="text-xs text-muted-foreground font-mono">
-                  Engine: v1.0.0-agentic
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 rounded-lg border border-sidebar-border bg-sidebar flex flex-col gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Info className="size-3.5" /> Organization Name
-                  </span>
-                  <span className="text-base font-extrabold text-foreground truncate">
-                    {seedData.meta?.organizationName || "Mudir Store Suite"}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-mono">ID: ORG_MUDIR_001</span>
-                </div>
-
-                <div className="p-4 rounded-lg border border-sidebar-border bg-sidebar flex flex-col gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <DollarSign className="size-3.5" /> Base Currency
-                  </span>
-                  <span className="text-base font-extrabold font-mono text-foreground">
-                    {seedData.meta?.userCurrency || "INR (₹)"}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Default billing & ledger currency</span>
-                </div>
-
-                <div className="p-4 rounded-lg border border-sidebar-border bg-sidebar flex flex-col gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Calendar className="size-3.5" /> Export Timestamp
-                  </span>
-                  <span className="text-base font-bold font-mono text-foreground truncate">
-                    {seedData.meta?.exportDate ? new Date(seedData.meta.exportDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Live Local Store"}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-mono">Sync Status: Active</span>
-                </div>
-
-                <div className="p-4 rounded-lg border border-sidebar-border bg-sidebar flex flex-col gap-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5" /> Agentic Engine State
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-foreground animate-pulse" />
-                    <span className="text-base font-extrabold text-foreground">Online & Ready</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Across {totalParties} registered parties
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground font-mono">Read-Only Safety Mode</span>
+                </div>
+              </div>
+
+              {/* Bento Card 1: Inventory Management */}
+              <div
+                onClick={() => navigate("/app/inventory")}
+                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Box className="size-4 text-foreground" /> Catalog & Stock
+                    </span>
+                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                      Manage <ArrowRight className="size-3" />
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                      {totalItems}
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      total SKU items
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Active Catalogs</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {totalCollections} Collections
+                  </span>
+                </div>
+              </div>
+
+              {/* Bento Card 2: Party Ledger & Books */}
+              <div
+                onClick={() => navigate("/app/ledger")}
+                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Building2 className="size-4 text-foreground" /> Parties & Accounts
+                    </span>
+                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                      Ledger <ArrowRight className="size-3" />
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                      {totalParties}
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      registered parties
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Ledger Status</span>
+                  <span className="font-mono font-bold text-foreground">
+                    Active Ledger Records
+                  </span>
+                </div>
+              </div>
+
+              {/* Bento Card 3: Store Cash Flow Analysis */}
+              <div className="flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <BarChart3 className="size-4 text-foreground" /> Cashflow Breakdown
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-sidebar-border bg-sidebar">
+                      Ledger Ratio
+                    </Badge>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5 mt-2 font-mono text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Debit (Given Out)</span>
+                      <span className="font-bold text-foreground">₹{totalDebit.toLocaleString("en-IN")}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Credit (Received)</span>
+                      <span className="font-bold text-foreground">₹{totalCredit.toLocaleString("en-IN")}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Net Ledger Position</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {netBalance > 0 ? "Payable Balance" : netBalance < 0 ? "Receivable Balance" : "Fully Settled"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bento Card 4: Settled Receipt Archive */}
+              <div
+                onClick={() => navigate("/app/receipts")}
+                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <ReceiptText className="size-4 text-foreground" /> Settled Receipts
+                    </span>
+                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                      Invoices <ArrowRight className="size-3" />
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                      {totalReceipts}
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      issued invoices
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Gross Invoice Total</span>
+                  <span className="font-mono font-bold text-foreground">
+                    ₹{totalReceiptsRevenue.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+
+              {/* System Info Strip */}
+              <div className="sm:col-span-2 p-5 rounded-xl border border-sidebar-border bg-sidebar/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-lg bg-foreground text-background flex items-center justify-center font-black">
+                    M
+                  </div>
+                  <div>
+                    <span className="font-bold text-sm text-foreground block">
+                      {seedData.meta?.organizationName || "Mudir Enterprise Store"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Agentic Store Suite • System Status: Operating & Healthy
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono">
+                  <div className="flex flex-col sm:items-end">
+                    <span>Active Currency</span>
+                    <span className="font-bold text-foreground">INR (₹)</span>
+                  </div>
+                  <div className="flex flex-col sm:items-end">
+                    <span>Security & Mode</span>
+                    <span className="font-bold text-foreground">Local Sandboxed</span>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Quick Navigation Footer */}
-            <div className="p-6 rounded-lg border border-sidebar-border bg-sidebar flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <span className="font-extrabold text-base text-foreground">Need to inspect detailed records?</span>
-                <span className="text-xs text-muted-foreground">Use the sidebar or quick links to navigate directly to specialized modules.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button onClick={() => navigate("/app/inventory")} variant="outline" size="sm" className="rounded-lg border-sidebar-border text-xs font-bold gap-1.5 cursor-pointer">
-                  <Box className="size-3.5" /> Inventories
-                </Button>
-                <Button onClick={() => navigate("/app/ledger")} variant="outline" size="sm" className="rounded-lg border-sidebar-border text-xs font-bold gap-1.5 cursor-pointer">
-                  <Building2 className="size-3.5" /> Ledger
-                </Button>
-                <Button onClick={() => navigate("/app/receipts")} variant="outline" size="sm" className="rounded-lg border-sidebar-border text-xs font-bold gap-1.5 cursor-pointer">
-                  <ReceiptText className="size-3.5" /> Receipts
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </ScrollArea>
+          </ScrollArea>
+        </div>
+      </div>
     </div>
   );
 }

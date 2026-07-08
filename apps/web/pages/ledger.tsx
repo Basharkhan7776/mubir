@@ -95,7 +95,7 @@ export default function Ledger() {
   };
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 pl-0 overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
       {/* Left Pane: Parties & Organizations */}
       <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
         <div className="flex items-center justify-between px-1">
@@ -116,8 +116,8 @@ export default function Ledger() {
           />
         </div>
 
-        <ScrollArea className="flex-1 -mx-2 px-2">
-          <div className="flex flex-col gap-2.5 pr-3">
+        <ScrollArea className="flex-1">
+          <div className="flex flex-col gap-2.5 pr-1">
             {filteredOrgs.map((item) => {
               const org = item.organization;
               const isSelected = selectedOrgId === org.id;
@@ -137,17 +137,10 @@ export default function Ledger() {
                       : "bg-background text-foreground border-sidebar-border hover:bg-muted",
                   )}
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
                     <div
-                      className={cn(
-                        "size-9 rounded-md flex items-center justify-center shrink-0 border border-sidebar-border transition-colors font-bold text-sm",
-                        isSelected
-                          ? "bg-background text-foreground"
-                          : "bg-muted text-foreground",
-                      )}
-                    >
-                      {org.name.charAt(0).toUpperCase()}
-                    </div>
+                      className={`size-3 rounded-full ${isSelected ? "bg-secondary" : "bg-primary"}`}
+                    />
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="font-semibold text-sm truncate">
                         {org.name}
@@ -204,7 +197,7 @@ export default function Ledger() {
                       printLedger(
                         activeEntry.organization,
                         activeEntry.transactions,
-                        netBalance
+                        netBalance,
                       )
                     }
                     className="gap-2 rounded-lg cursor-pointer border-sidebar-border"
@@ -219,7 +212,7 @@ export default function Ledger() {
                       printLedger(
                         activeEntry.organization,
                         activeEntry.transactions,
-                        netBalance
+                        netBalance,
                       )
                     }
                     className="gap-2 rounded-lg cursor-pointer shadow-xs"
