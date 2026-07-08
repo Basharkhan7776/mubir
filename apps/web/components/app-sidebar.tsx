@@ -27,22 +27,12 @@ import {
   ChevronRight,
   CreditCard,
   Home,
-  LogOut,
   PanelLeftIcon,
   ReceiptText,
-  RefreshCcw,
   Settings,
 } from "lucide-react";
-import { Button } from "./ui/button";
-import { PaginationEllipsis } from "./ui/pagination";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { Separator } from "./ui/separator";
-import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
+import { Dialog, DialogTrigger } from "./ui/dialog";
+import { SettingsDialog } from "./settings-dialog";
 
 const icons = {
   Box,
@@ -86,7 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { toggleSidebar, state } = useSidebar();
 
   return (
-    <Sidebar variant="floating" collapsible="icon" {...props}>
+    <Sidebar variant="floating" collapsible="icon" className="bg-background" {...props}>
       <SidebarHeader className="py-4 group-data-[collapsible=icon]:py-2 group-data-[collapsible=icon]:px-1">
         <Tooltip>
           <TooltipTrigger
@@ -126,7 +116,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         render={<Link to={item.url} />}
                         isActive={location.pathname === item.url}
                         tooltip={item.title}
-                        className="px-4 py-6 flex items-center justify-between text-lg group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:justify-center"
+                        className="px-4 py-6 flex items-center justify-between text-lg group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:justify-center data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground"
                       >
                         <div className="flex items-center gap-2">
                           {Icon && <Icon className="size-6 shrink-0" />}
@@ -179,35 +169,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </SidebarMenuButton>
                 }
               />
-              <DialogContent className="w-44">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <Settings />
-                    <span>Settings</span>
-                  </div>
-                </div>
-                <Separator orientation="vertical" />
-                <Button
-                  variant="ghost"
-                  className="flex w-full items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <RefreshCcw />
-                    Sync
-                  </div>
-                  <ChevronRight />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="flex w-full items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <LogOut />
-                    Sign out
-                  </div>
-                  <ChevronRight />
-                </Button>
-              </DialogContent>
+              <SettingsDialog />
             </Dialog>
           </SidebarMenuItem>
         </SidebarMenu>

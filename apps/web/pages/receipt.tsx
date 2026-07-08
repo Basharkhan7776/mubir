@@ -25,6 +25,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { printReceipt } from "@/lib/pdf";
 
 export default function Receipt() {
   const [selectedReceiptId, setSelectedReceiptId] = useState<string>(
@@ -169,14 +170,16 @@ export default function Receipt() {
                 <Button
                   size="sm"
                   variant="outline"
+                  onClick={() => printReceipt(activeReceipt)}
                   className="gap-2 rounded-lg cursor-pointer border-sidebar-border"
                 >
                   <Printer className="size-4" /> Print
                 </Button>
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="gap-2 rounded-lg cursor-pointer border-sidebar-border"
+                  variant="default"
+                  onClick={() => printReceipt(activeReceipt)}
+                  className="gap-2 rounded-lg cursor-pointer shadow-xs"
                 >
                   <Download className="size-4" /> PDF
                 </Button>
@@ -206,16 +209,10 @@ export default function Receipt() {
                     <span className="text-3xl font-black tracking-tight text-muted-foreground/30">
                       INVOICE
                     </span>
-                    <span className="font-mono font-bold text-sm text-foreground">
-                      #{activeReceipt.id.toUpperCase()}
-                    </span>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <Badge
-                        variant="outline"
-                        className="bg-muted text-foreground border-sidebar-border text-[10px] uppercase font-bold gap-1 px-2"
-                      >
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted text-foreground border border-sidebar-border text-[10px] uppercase font-bold">
                         <CheckCircle2 className="size-3" /> Paid & Settled
-                      </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>

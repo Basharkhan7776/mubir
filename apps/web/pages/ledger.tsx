@@ -27,8 +27,10 @@ import {
   FileText,
   ChevronRight,
   Download,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { printLedger } from "@/lib/pdf";
 
 export default function Ledger() {
   const [selectedOrgId, setSelectedOrgId] = useState<string>(
@@ -194,14 +196,36 @@ export default function Ledger() {
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() =>
+                      printLedger(
+                        activeEntry.organization,
+                        activeEntry.transactions,
+                        netBalance
+                      )
+                    }
                     className="gap-2 rounded-lg cursor-pointer border-sidebar-border"
                   >
+                    <Printer className="size-4" />
+                    <span>Print</span>
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() =>
+                      printLedger(
+                        activeEntry.organization,
+                        activeEntry.transactions,
+                        netBalance
+                      )
+                    }
+                    className="gap-2 rounded-lg cursor-pointer shadow-xs"
+                  >
                     <Download className="size-4" />
-                    <p>PDF</p>
+                    <span>PDF</span>
                   </Button>
                 </div>
               </div>
@@ -277,10 +301,10 @@ export default function Ledger() {
                   <Button
                     key={type}
                     size="xs"
-                    variant={typeFilter === type ? "default" : "ghost"}
+                    variant={typeFilter === type ? "default" : "outline"}
                     onClick={() => setTypeFilter(type)}
                     className={cn(
-                      "rounded-md text-xs font-bold px-3.5 cursor-pointer",
+                      "rounded-md text-xs font-bold px-3.5 cursor-pointer border-sidebar-border",
                       typeFilter === type
                         ? "bg-foreground text-background"
                         : "text-foreground hover:bg-muted",
@@ -354,24 +378,9 @@ export default function Ledger() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <span className="font-semibold text-sm text-foreground">
-                              {t.remark || "No remark provided"}
-                            </span>
-                            {t.tags && t.tags.length > 0 && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {t.tags.map((tag) => (
-                                  <Badge
-                                    key={tag}
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 rounded-md font-normal bg-muted text-muted-foreground border border-sidebar-border"
-                                  >
-                                    #{tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          <span className="font-semibold text-sm text-foreground">
+                            {t.remark || "No remark provided"}
+                          </span>
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="font-mono font-extrabold text-base text-foreground">
