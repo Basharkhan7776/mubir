@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { seedData } from "@/lib/seed";
+import { useAppData } from "@/lib/use-app-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,15 +28,17 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Inventory() {
+  const { data } = useAppData();
+
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>(
-    seedData.collections[0]?.id || "",
+    data.collections[0]?.id || "",
   );
   const [collectionSearch, setCollectionSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedItemId, setSelectedItemId] = useState<string>("");
 
-  const collections = seedData.collections;
+  const collections = data.collections;
   const filteredCollections = useMemo(() => {
     return collections.filter(
       (c) =>

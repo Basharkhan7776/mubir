@@ -6,7 +6,7 @@ import Home from "./pages/index";
 import Inventory from "./pages/inventory";
 import Ledger from "./pages/ledger";
 import Receipt from "./pages/receipt";
-import AppHome from "./pages/app";
+import ProtectedApp from "./pages/app";
 import DashboardOverview from "./pages/dashboard-overview";
 
 const App: React.FC = () => {
@@ -15,7 +15,7 @@ const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/app" element={<AppHome />}>
+          <Route path="/app" element={<ProtectedApp />}>
             <Route index element={<DashboardOverview />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="ledger" element={<Ledger />} />

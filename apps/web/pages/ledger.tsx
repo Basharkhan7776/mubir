@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { seedData } from "@/lib/seed";
+import { useAppData } from "@/lib/use-app-data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,15 +33,17 @@ import { cn } from "@/lib/utils";
 import { printLedger } from "@/lib/pdf";
 
 export default function Ledger() {
+  const { data } = useAppData();
+
   const [selectedOrgId, setSelectedOrgId] = useState<string>(
-    seedData.ledger[0]?.organization.id || "",
+    data.ledger[0]?.organization.id || "",
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "DEBIT" | "CREDIT">(
     "ALL",
   );
 
-  const ledger = seedData.ledger;
+  const ledger = data.ledger;
 
   const filteredOrgs = useMemo(() => {
     return ledger.filter((item) => {

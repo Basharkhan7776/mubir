@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { seedData } from "@/lib/seed";
+import { useAppData } from "@/lib/use-app-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,12 +28,14 @@ import { cn } from "@/lib/utils";
 import { printReceipt } from "@/lib/pdf";
 
 export default function Receipt() {
+  const { data } = useAppData();
+
   const [selectedReceiptId, setSelectedReceiptId] = useState<string>(
-    seedData.receipts[0]?.id || "",
+    data.receipts[0]?.id || "",
   );
   const [searchQuery, setSearchQuery] = useState("");
 
-  const receipts = seedData.receipts;
+  const receipts = data.receipts;
 
   const filteredReceipts = useMemo(() => {
     return receipts.filter((r) => {

@@ -5,6 +5,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
 import syncRouter from "./sync.js";
 import os from "os";
+import cors from "cors";
 
 const app = express();
 
@@ -13,6 +14,34 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(express.json());
+
+// CORS is required because the web frontend (running on localhost:3000 or mudir.basharkhan.com)
+// makes cross-origin requests to the auth server (localhost:3001 or apimudir...).
+// The login flow from the landing page does a fetch/POST to /api/auth/sign-in/social.
+// better-auth uses cookies for auth, so we must allow credentials and the web origin.
+// Without this, you get exactly: "No 'Access-Control-Allow-Origin' header is present on the requested resource."
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:8080',
+  process.env.FRONTEND_URL || 'http://localhost:3000',
+  'https://mudir.basharkhan.com',
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow mobile, curl, same-origin, etc.
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Dev helper: allow any localhost (ports 3000, 8080, etc.)
+    if (process.env.NODE_ENV !== 'production' && origin && /localhost(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+  credentials: true, // must be true for better-auth session cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+}));
 
 // The @better-auth/expo plugin handles mobile OAuth flows automatically
 app.all(/^\/api\/auth/, toNodeHandler(auth));

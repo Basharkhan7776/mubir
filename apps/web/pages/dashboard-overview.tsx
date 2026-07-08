@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { seedData } from "@/lib/seed";
+import { useAppData } from "@/lib/use-app-data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,8 @@ export default function DashboardOverview() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { data } = useAppData();
+
   const {
     totalCollections,
     totalItems,
@@ -79,9 +81,9 @@ export default function DashboardOverview() {
     totalReceipts,
     totalReceiptsRevenue,
   } = useMemo(() => {
-    const cols = seedData.collections || [];
-    const led = seedData.ledger || [];
-    const rcpts = seedData.receipts || [];
+    const cols = data.collections || [];
+    const led = data.ledger || [];
+    const rcpts = data.receipts || [];
 
     let itemsCount = 0;
     let invValue = 0;
@@ -134,7 +136,7 @@ export default function DashboardOverview() {
       stock: number;
     }> = [];
 
-    seedData.collections.forEach((c) => {
+    data.collections.forEach((c) => {
       c.data.forEach((item) => {
         const values = Object.values(item.values).map(String);
         const matches = values.some((v) => v.toLowerCase().includes(query));
@@ -153,7 +155,7 @@ export default function DashboardOverview() {
 
     const matchedParties: Array<{ id: string; name: string; phone?: string; email?: string }> = [];
     const matchedTxns: Array<{ partyName: string; type: string; amount: number; remark: string; date: string }> = [];
-    seedData.ledger.forEach((entry) => {
+    data.ledger.forEach((entry) => {
       const org = entry.organization;
       if (
         org.name.toLowerCase().includes(query) ||
@@ -178,7 +180,7 @@ export default function DashboardOverview() {
       });
     });
 
-    const matchedReceipts = seedData.receipts.filter((r) => {
+    const matchedReceipts = data.receipts.filter((r) => {
       return (
         r.customerName.toLowerCase().includes(query) ||
         r.id.toLowerCase().includes(query) ||
@@ -434,7 +436,7 @@ export default function DashboardOverview() {
                   </div>
 
                   <Badge variant="outline" className="w-fit font-mono text-xs border-sidebar-border bg-background px-2.5 py-1">
-                    Currency: {seedData.meta?.userCurrency || "INR (₹)"}
+                    Currency: {data.meta?.userCurrency || "INR (₹)"}
                   </Badge>
                 </div>
 
@@ -641,7 +643,7 @@ export default function DashboardOverview() {
                   </div>
                   <div>
                     <span className="font-bold text-sm text-foreground block">
-                      {seedData.meta?.organizationName || "Mudir Enterprise Store"}
+                      {data.meta?.organizationName || "Mudir Enterprise Store"}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       Agentic Store Suite • System Status: Operating & Healthy

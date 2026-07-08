@@ -1,11 +1,44 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Github, Apple, Play, Download, LogIn } from "lucide-react";
+import { Github, LogIn } from "lucide-react";
 import { PhoneMockup } from "./PhoneMockup";
 import { useNavigate } from "react-router";
+import { signInWithGoogle, getSession } from "@/lib/auth-client";
 
 export const Hero: React.FC = () => {
   const router = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const { data } = await getSession();
+        setIsLoggedIn(!!data?.user);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+    check();
+  }, []);
+
+  const handleLogin = () => {
+    if (isLoggedIn) {
+      router("/app");
+      return;
+    }
+
+    try {
+      // This will redirect the browser to the server's auth handler
+      // app.all(/^\/api\/auth/, toNodeHandler(auth))
+      // After successful Google login, server will redirect back to /app
+      signInWithGoogle("/app");
+    } catch (err) {
+      console.error("Failed to start OAuth login", err);
+      // Fallback - protection on /app will handle login state
+      router("/app");
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -79,15 +112,15 @@ export const Hero: React.FC = () => {
             </button> */}
             <button
               className="group flex items-center gap-2 md:gap-3 px-5 py-2 md:px-6 md:py-3 border border-black rounded-full hover:bg-black hover:text-white transition-all duration-300"
-              onClick={() => {
-                router("/app");
-              }}
+              onClick={handleLogin}
             >
               <LogIn
                 size={18}
                 className="md:w-5 md:h-5 group-hover:fill-white transition-colors"
               />
-              <span className="font-medium text-sm md:text-base">Login</span>
+              <span className="font-medium text-sm md:text-base">
+                {isLoggedIn ? "Open App" : "Login with Google"}
+              </span>
             </button>
             <a
               href="https://github.com/basharkhan7776/mudir"
