@@ -2,6 +2,10 @@ import React from "react";
 import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router";
 import { ThemeProvider } from "next-themes";
+import { Provider as ReduxProvider } from "react-redux";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { store } from "@/lib/store";
+import { queryClient } from "@/lib/query-client";
 import Home from "./pages/index";
 import Inventory from "./pages/inventory";
 import Ledger from "./pages/ledger";
@@ -11,19 +15,23 @@ import DashboardOverview from "./pages/dashboard-overview";
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/app" element={<ProtectedApp />}>
-            <Route index element={<DashboardOverview />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="ledger" element={<Ledger />} />
-            <Route path="receipts" element={<Receipt />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </ThemeProvider>
+    <ReduxProvider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/app" element={<ProtectedApp />}>
+                <Route index element={<DashboardOverview />} />
+                <Route path="inventory" element={<Inventory />} />
+                <Route path="ledger" element={<Ledger />} />
+                <Route path="receipts" element={<Receipt />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ReduxProvider>
   );
 };
 

@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { useAppData } from "@/lib/use-app-data";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useAppSelector } from "@/lib/store/hooks";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,18 +10,12 @@ import {
   Box,
   Building2,
   ReceiptText,
-  TrendingUp,
-  DollarSign,
-  Layers,
   FileText,
   ArrowRight,
-  Info,
   Cpu,
   Sparkles,
-  Plus,
   Wallet,
   ArrowUpRight,
-  ShieldCheck,
   BarChart3,
 } from "lucide-react";
 
@@ -68,7 +60,11 @@ export default function DashboardOverview() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data } = useAppData();
+  const collections = useAppSelector((s) => s.inventory.collections);
+  const ledger = useAppSelector((s) => s.ledger.entries);
+  const receipts = useAppSelector((s) => s.receipts.list);
+  const userCurrency = useAppSelector((s) => s.settings.userCurrency);
+  const organizationName = useAppSelector((s) => s.settings.organizationName);
 
   const {
     totalCollections,
@@ -81,9 +77,9 @@ export default function DashboardOverview() {
     totalReceipts,
     totalReceiptsRevenue,
   } = useMemo(() => {
-    const cols = data.collections || [];
-    const led = data.ledger || [];
-    const rcpts = data.receipts || [];
+    const cols = collections || [];
+    const led = ledger || [];
+    const rcpts = receipts || [];
 
     let itemsCount = 0;
     let invValue = 0;
@@ -121,7 +117,7 @@ export default function DashboardOverview() {
       totalReceipts: rcpts.length,
       totalReceiptsRevenue: rcptRev,
     };
-  }, []);
+  }, [collections, ledger, receipts]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -136,7 +132,7 @@ export default function DashboardOverview() {
       stock: number;
     }> = [];
 
-    data.collections.forEach((c) => {
+    collections.forEach((c) => {
       c.data.forEach((item) => {
         const values = Object.values(item.values).map(String);
         const matches = values.some((v) => v.toLowerCase().includes(query));
@@ -155,7 +151,7 @@ export default function DashboardOverview() {
 
     const matchedParties: Array<{ id: string; name: string; phone?: string; email?: string }> = [];
     const matchedTxns: Array<{ partyName: string; type: string; amount: number; remark: string; date: string }> = [];
-    data.ledger.forEach((entry) => {
+    ledger.forEach((entry) => {
       const org = entry.organization;
       if (
         org.name.toLowerCase().includes(query) ||
@@ -180,7 +176,7 @@ export default function DashboardOverview() {
       });
     });
 
-    const matchedReceipts = data.receipts.filter((r) => {
+    const matchedReceipts = receipts.filter((r) => {
       return (
         r.customerName.toLowerCase().includes(query) ||
         r.id.toLowerCase().includes(query) ||
@@ -195,7 +191,7 @@ export default function DashboardOverview() {
       txns: matchedTxns,
       receipts: matchedReceipts,
     };
-  }, [searchQuery]);
+  }, [searchQuery, collections, ledger, receipts]);
 
   const hasSearchResults =
     searchResults.items.length > 0 ||
@@ -436,7 +432,7 @@ export default function DashboardOverview() {
                   </div>
 
                   <Badge variant="outline" className="w-fit font-mono text-xs border-sidebar-border bg-background px-2.5 py-1">
-                    Currency: {data.meta?.userCurrency || "INR (₹)"}
+                    Currency: {userCurrency || "INR (₹)"}
                   </Badge>
                 </div>
 
@@ -643,7 +639,7 @@ export default function DashboardOverview() {
                   </div>
                   <div>
                     <span className="font-bold text-sm text-foreground block">
-                      {data.meta?.organizationName || "Mudir Enterprise Store"}
+                      {organizationName || "Mudir Enterprise Store"}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       Agentic Store Suite • System Status: Operating & Healthy

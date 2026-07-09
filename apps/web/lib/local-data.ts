@@ -1,5 +1,5 @@
 import { DatabaseSchema } from "@mudir/types";
-import { seedData } from "./seed"; // only for initial fallback
+import { seedData } from "./seed";
 
 export const STORAGE_KEY = "mudir-web-data";
 
@@ -34,43 +34,20 @@ export function saveData(data: AppData) {
   }
 }
 
-export async function downloadData(serverUrl?: string): Promise<AppData> {
-  const base = serverUrl || (import.meta.env.VITE_SERVER_URL as string) || "http://localhost:3001";
-  const url = `${base.replace(/\/$/, "")}/api/sync/download`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    credentials: "include", // important for better-auth cookies
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Failed to download data: ${res.status} ${text}`);
+export function clearLocalData() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    console.error("Failed to clear local data", e);
   }
-
-  const json = await res.json();
-
-  // Server returns { data: DatabaseSchema, lastSync, ... } or { data: null, message }
-  const remoteData: AppData | null = json.data ?? null;
-
-  if (!remoteData) {
-    // No remote data yet — keep local or return empty
-    const current = loadData();
-    return current;
-  }
-
-  saveData(remoteData);
-
-  // Notify listeners (other components using the hook)
-  window.dispatchEvent(new CustomEvent("mudir-data-updated"));
-
-  return remoteData;
 }
 
-// Optional helper to get fresh copy without side effects
+/** @deprecated Prefer downloadAppData from @/lib/api/sync + useDownloadDataMutation */
+export async function downloadData(serverUrl?: string): Promise<AppData> {
+  const { downloadAppData } = await import("./api/sync");
+  return downloadAppData(serverUrl);
+}
+
 export function getCurrentData(): AppData {
   return loadData();
 }

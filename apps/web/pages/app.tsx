@@ -1,23 +1,44 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import AppLayout from "./app-layout";
 import { authClient, signOut } from "@/lib/auth-client";
-import { downloadData, hasLocalData, STORAGE_KEY } from "@/lib/local-data";
+import { clearLocalData, hasLocalData } from "@/lib/local-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import {
+  setUser,
+  setServerDataVerified,
+  setIsBootstrapping,
+  logout as logoutAction,
+} from "@/lib/store/slices/authSlice";
+import { applyAppData, hydrateStoreFromLocal } from "@/lib/store";
+import { downloadAppData, fetchSyncStatus } from "@/lib/api/sync";
 
+/**
+ * Protected shell for /app/*.
+ *
+ * - Checks session only (cheap cookie session).
+ * - Does NOT call /api/sync/status on every page switch.
+ * - Status is checked on landing Login/Open (Hero).
+ * - Exception: first visit after OAuth with no local data and status not yet
+ *   verified in this SPA session — one-time bootstrap status + download.
+ */
 export default function ProtectedApp() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const serverDataVerified = useAppSelector((s) => s.auth.serverDataVerified);
+  const bootstrappedRef = useRef(false);
 
-  // IMPORTANT: If data is already in localStorage, render the app UI *immediately*
-  // (no skeleton / no blocking "fetch"). We still validate session + server data
-  // in the background. Only show loading skeleton on first bootstrap (no local data yet).
-  // This avoids unnecessary reloads for returning users who already have localStorage data.
+  // Instant UI when localStorage already has data
   const [isLoading, setIsLoading] = useState(() => !hasLocalData());
 
   useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+
     const protectRoute = async () => {
+      dispatch(setIsBootstrapping(true));
       try {
-        // 1. Check authentication (session cookie from better-auth)
         const { data: session } = await authClient.getSession();
 
         if (!session?.user) {
@@ -25,69 +46,79 @@ export default function ProtectedApp() {
           return;
         }
 
-        // 2. Check if server has data for this user (using status endpoint)
-        // This enforces: web app is only for users who have uploaded from the mobile app.
-        const base = (import.meta.env.VITE_SERVER_URL as string) || "http://localhost:3001";
-        const statusUrl = `${base.replace(/\/$/, "")}/api/sync/status`;
+        dispatch(
+          setUser({
+            id: session.user.id,
+            email: session.user.email ?? null,
+            name: session.user.name ?? null,
+            image: session.user.image ?? null,
+          }),
+        );
 
-        let hasDataOnServer = false;
-        try {
-          const statusRes = await fetch(statusUrl, {
-            method: "GET",
-            credentials: "include",
-          });
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            hasDataOnServer = !!status.hasData;
-          }
-        } catch (e) {
-          console.warn("Could not check server status", e);
-        }
-
-        if (!hasDataOnServer) {
-          // As requested: log out from web + clear local + alert + go home
-          try {
-            await signOut();
-          } catch {}
-          localStorage.removeItem(STORAGE_KEY);
-
-          alert(
-            "You don't have any data on the server yet.\n\n" +
-              "Please download the Mudir mobile app, log in there, " +
-              "upload your data from the app, and then return here to fetch/sync it."
-          );
-          navigate("/");
+        // Always hydrate Redux from local data when available (no network)
+        if (hasLocalData()) {
+          hydrateStoreFromLocal();
+          setIsLoading(false);
           return;
         }
 
-        // 3. Only download from server if we had *no* local data at mount time.
-        // Returning users with localStorage data get instant UI (no reload).
-        // Use the explicit "Sync (Download from server)" button in Settings when you want fresh data.
-        if (!hasLocalData()) {
+        // No local data: only happens after fresh OAuth or cleared storage.
+        // Run status once for this case (not on subsequent page switches —
+        // bootstrappedRef + serverDataVerified prevent repeats).
+        if (!serverDataVerified) {
+          let hasDataOnServer = false;
           try {
-            await downloadData();
-          } catch (fetchErr) {
-            console.warn("Could not download data from server", fetchErr);
+            const status = await fetchSyncStatus();
+            hasDataOnServer = status.hasData;
+            if (hasDataOnServer) {
+              dispatch(setServerDataVerified(true));
+            }
+          } catch (e) {
+            console.warn("Could not check server status (OAuth bootstrap)", e);
+          }
+
+          if (!hasDataOnServer) {
+            try {
+              await signOut();
+            } catch {
+              /* ignore */
+            }
+            clearLocalData();
+            dispatch(logoutAction());
+            alert(
+              "You don't have any data on the server yet.\n\n" +
+                "Please download the Mudir mobile app, log in there, " +
+                "upload your data from the app, and then return here to fetch/sync it.",
+            );
+            navigate("/");
+            return;
           }
         }
 
-        // If we were showing skeleton (first-time bootstrap), stop now.
-        // If we had local data, isLoading was already false — this is a no-op.
+        try {
+          const data = await downloadAppData();
+          applyAppData(data);
+        } catch (fetchErr) {
+          console.warn("Could not download data from server", fetchErr);
+        }
+
         setIsLoading(false);
       } catch (err) {
         console.error("Protection check failed", err);
         navigate("/");
+      } finally {
+        dispatch(setIsBootstrapping(false));
       }
     };
 
     protectRoute();
-  }, [navigate]);
+    // Intentionally run once per mount of the /app layout (not on child route changes).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (isLoading) {
-    // Show skeleton only while bootstrapping (no prior localStorage data)
     return (
       <div className="flex h-screen w-screen bg-background">
-        {/* Fake sidebar skeleton */}
         <div className="hidden w-64 border-r border-border p-4 md:block">
           <Skeleton className="mb-6 h-8 w-3/4" />
           <div className="space-y-3">
@@ -98,7 +129,6 @@ export default function ProtectedApp() {
           </div>
         </div>
 
-        {/* Main content skeleton */}
         <div className="flex-1 p-6 md:p-8">
           <div className="mx-auto max-w-6xl space-y-6">
             <Skeleton className="h-10 w-1/3" />

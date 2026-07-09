@@ -1,56 +1,53 @@
 import { useTheme } from "next-themes";
 import { LogOut, Moon, RefreshCcw, Settings, Sun, User } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { DialogContent, DialogTitle } from "./ui/dialog";
 import { Separator } from "./ui/separator";
 import { Switch } from "./ui/switch";
-import { authClient, signInWithGoogle, signOut, GOOGLE_CLIENT_ID } from "@/lib/auth-client";
-import { downloadData, loadData, saveData, STORAGE_KEY } from "@/lib/local-data";
-import { DatabaseSchema } from "@mudir/types";
+import {
+  signInWithGoogle,
+  signOut,
+  GOOGLE_CLIENT_ID,
+} from "@/lib/auth-client";
+import { clearLocalData } from "@/lib/local-data";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { logout as logoutAction } from "@/lib/store/slices/authSlice";
+import { useDownloadDataMutation } from "@/lib/hooks/use-sync";
+import { useState } from "react";
 
 export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
-  const [session, setSession] = useState<any>(null);
-  const [data, setData] = useState<DatabaseSchema | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
+  const isLoggedIn = useAppSelector((s) => s.auth.isLoggedIn);
+  const isSyncing = useAppSelector((s) => s.auth.isSyncing);
+  const lastSync = useAppSelector((s) => s.auth.lastSync);
+  const organizationName = useAppSelector((s) => s.settings.organizationName);
+  const userCurrency = useAppSelector((s) => s.settings.userCurrency);
+  const exportDate = useAppSelector((s) => s.settings.exportDate);
+
+  const downloadMutation = useDownloadDataMutation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Load session + local data on mount
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const sess = await authClient.getSession();
-        setSession(sess?.data ?? null);
-      } catch {
-        setSession(null);
-      }
-      setData(loadData());
-    };
-    load();
-  }, []);
-
   const handleSync = async () => {
-    if (!session) {
+    if (!isLoggedIn) {
       alert("Please sign in first to download data from server.");
       return;
     }
-    setIsSyncing(true);
     try {
-      const fresh = await downloadData();
-      setData(fresh);
+      await downloadMutation.mutateAsync();
       alert("Data downloaded from server!");
     } catch (err: any) {
       console.error(err);
       alert("Download failed: " + (err?.message || "Please sign in again"));
-    } finally {
-      setIsSyncing(false);
     }
   };
 
   const handleSignIn = () => {
-    console.log("Using Google OAuth client for web:", GOOGLE_CLIENT_ID || "server config");
-    // Redirects to server auth handler, then back to /app
+    console.log(
+      "Using Google OAuth client for web:",
+      GOOGLE_CLIENT_ID || "server config",
+    );
     signInWithGoogle("/app");
   };
 
@@ -58,11 +55,9 @@ export function SettingsDialog() {
     setIsLoggingOut(true);
     try {
       await signOut();
-      // Clear local app data on logout (optional but clean)
-      localStorage.removeItem(STORAGE_KEY);
-      setSession(null);
-      setData(null);
-      window.location.reload();
+      clearLocalData();
+      dispatch(logoutAction());
+      window.location.href = "/";
     } catch (e) {
       console.error(e);
     } finally {
@@ -70,7 +65,7 @@ export function SettingsDialog() {
     }
   };
 
-  const meta = data?.meta;
+  const syncing = isSyncing || downloadMutation.isPending;
 
   return (
     <DialogContent>
@@ -98,22 +93,30 @@ export function SettingsDialog() {
 
       <Separator />
 
-      {/* User / Meta info */}
-      {session?.user ? (
+      {/* User / Meta info from Redux */}
+      {user ? (
         <div className="px-1 text-sm space-y-1">
           <div className="flex items-center gap-2 text-muted-foreground">
             <User className="size-4" />
-            <span className="font-medium text-foreground">{session.user.name || session.user.email}</span>
+            <span className="font-medium text-foreground">
+              {user.name || user.email}
+            </span>
           </div>
-          {meta?.organizationName && (
-            <div>Organization: <span className="font-medium">{meta.organizationName}</span></div>
+          {organizationName && (
+            <div>
+              Organization:{" "}
+              <span className="font-medium">{organizationName}</span>
+            </div>
           )}
-          {meta?.userCurrency && (
-            <div>Currency: <span className="font-medium">{meta.userCurrency}</span></div>
+          {userCurrency && (
+            <div>
+              Currency: <span className="font-medium">{userCurrency}</span>
+            </div>
           )}
-          {meta?.exportDate && (
+          {(exportDate || lastSync) && (
             <div className="text-xs text-muted-foreground">
-              Local data: {new Date(meta.exportDate).toLocaleString()}
+              Local data:{" "}
+              {new Date(exportDate || lastSync || "").toLocaleString()}
             </div>
           )}
         </div>
@@ -123,16 +126,16 @@ export function SettingsDialog() {
 
       <Separator />
 
-      {/* Sync (Download) */}
+      {/* Sync (Download) via TanStack Query mutation */}
       <Button
         variant="ghost"
         className="flex w-full items-center justify-between gap-2"
         onClick={handleSync}
-        disabled={isSyncing}
+        disabled={syncing}
       >
         <div className="flex items-center gap-2">
-          <RefreshCcw className={isSyncing ? "animate-spin" : ""} />
-          {isSyncing ? "Syncing..." : "Sync (Download from server)"}
+          <RefreshCcw className={syncing ? "animate-spin" : ""} />
+          {syncing ? "Syncing..." : "Sync (Download from server)"}
         </div>
       </Button>
 
@@ -149,18 +152,12 @@ export function SettingsDialog() {
         </div>
       </Button>
 
-      {/* Sign in (when not logged in) */}
-      {!session?.user && (
-        <Button
-          variant="default"
-          className="w-full"
-          onClick={handleSignIn}
-        >
+      {!user && (
+        <Button variant="default" className="w-full" onClick={handleSignIn}>
           Sign in with Google
         </Button>
       )}
 
-      {/* OAuth Client ID (for reference / Google Console setup) */}
       {GOOGLE_CLIENT_ID && (
         <div className="text-[10px] text-muted-foreground px-1 mt-2">
           Using Google OAuth client: {GOOGLE_CLIENT_ID.substring(0, 20)}...

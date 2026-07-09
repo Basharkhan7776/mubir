@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth.js";
 import syncRouter from "./sync.js";
+import earlyAccessRouter from "./early-access.js";
 import os from "os";
 import cors from "cors";
 
@@ -51,6 +52,10 @@ app.all(/^\/api\/auth/, toNodeHandler(auth));
 // - GET  /api/sync/download → download data from server
 // - POST /api/sync/upload   → upload data to server
 app.use("/api/sync", syncRouter);
+
+// Public early-access waitlist (full name + email → MongoDB)
+// - POST /api/early-access
+app.use("/api/early-access", earlyAccessRouter);
 
 app.get("/", (_req, res) => {
   res.status(301).redirect("https://mudir.basharkhan.com");

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useAppData } from "@/lib/use-app-data";
+import { useAppSelector } from "@/lib/store/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,17 +28,15 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function Inventory() {
-  const { data } = useAppData();
+  const collections = useAppSelector((s) => s.inventory.collections);
 
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>(
-    data.collections[0]?.id || "",
+    collections[0]?.id || "",
   );
   const [collectionSearch, setCollectionSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedItemId, setSelectedItemId] = useState<string>("");
-
-  const collections = data.collections;
   const filteredCollections = useMemo(() => {
     return collections.filter(
       (c) =>

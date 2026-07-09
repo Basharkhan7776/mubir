@@ -1,29 +1,28 @@
-import { useEffect, useState } from "react";
-import { loadData, saveData, AppData } from "./local-data";
+/**
+ * Compatibility hook: read the full app dataset from Redux.
+ * Prefer useAppSelector for slice-specific reads in new code.
+ */
+import { useAppSelector } from "@/lib/store/hooks";
+import type { AppData } from "./local-data";
 
-export function useAppData() {
-  const [data, setData] = useState<AppData>(() => loadData());
+export function useAppData(): { data: AppData } {
+  const collections = useAppSelector((s) => s.inventory.collections);
+  const ledger = useAppSelector((s) => s.ledger.entries);
+  const receipts = useAppSelector((s) => s.receipts.list);
+  const settings = useAppSelector((s) => s.settings);
 
-  const refresh = () => {
-    const fresh = loadData();
-    setData(fresh);
+  const data: AppData = {
+    meta: {
+      appVersion: settings.appVersion,
+      exportDate: settings.exportDate,
+      userCurrency: settings.userCurrency,
+      organizationName: settings.organizationName,
+      isNewUser: settings.isNewUser,
+    },
+    collections,
+    ledger,
+    receipts,
   };
 
-  const updateData = (newData: AppData) => {
-    saveData(newData);
-    setData(newData);
-  };
-
-  // Re-read on mount / when storage or custom sync event fires
-  useEffect(() => {
-    const handler = () => refresh();
-    window.addEventListener("storage", handler);
-    window.addEventListener("mudir-data-updated" as any, handler);
-    return () => {
-      window.removeEventListener("storage", handler);
-      window.removeEventListener("mudir-data-updated" as any, handler);
-    };
-  }, []);
-
-  return { data, refresh, updateData };
+  return { data };
 }
