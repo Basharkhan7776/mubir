@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { useAppSelector } from "@/lib/store/hooks";
+import type { ReceiptsNavState } from "@/lib/navigation-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,11 +31,36 @@ import { printReceipt } from "@/lib/pdf";
 
 export default function Receipt() {
   const receipts = useAppSelector((s) => s.receipts.list);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [selectedReceiptId, setSelectedReceiptId] = useState<string>(
-    receipts[0]?.id || "",
+  const pendingNav = useRef<ReceiptsNavState | null>(
+    (location.state as ReceiptsNavState | null) ?? null,
   );
+
+  const [selectedReceiptId, setSelectedReceiptId] = useState<string>(() => {
+    const nav = location.state as ReceiptsNavState | null;
+    return nav?.receiptId || receipts[0]?.id || "";
+  });
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Deep-link from dashboard search: select receipt
+  useEffect(() => {
+    const state =
+      pendingNav.current || (location.state as ReceiptsNavState | null);
+    if (!state?.receiptId) return;
+    if (!receipts.length) return;
+
+    const exists = receipts.some((r) => r.id === state.receiptId);
+    if (exists) {
+      setSelectedReceiptId(state.receiptId);
+      setSearchQuery("");
+      pendingNav.current = null;
+      if (location.state) {
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    }
+  }, [receipts, location.state, location.pathname, navigate]);
 
   const filteredReceipts = useMemo(() => {
     return receipts.filter((r) => {
@@ -48,7 +75,9 @@ export default function Receipt() {
   }, [receipts, searchQuery]);
 
   const activeReceipt = useMemo(() => {
-    return receipts.find((r) => r.id === selectedReceiptId) || receipts[0];
+    return (
+      receipts.find((r) => r.id === selectedReceiptId) || receipts[0] || null
+    );
   }, [receipts, selectedReceiptId]);
 
   const { subtotal, tax, grandTotal } = useMemo(() => {
@@ -73,13 +102,13 @@ export default function Receipt() {
   };
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full gap-1.5 overflow-hidden bg-background p-1.5 text-foreground xl:gap-2 xl:p-2">
       {/* Left Pane: Receipts List */}
-      <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <ReceiptText className="size-5 text-foreground" />
-            <h2 className="font-bold text-lg tracking-tight text-foreground">
+      <div className="flex h-full w-52 shrink-0 flex-col gap-3 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-3 shadow-sm lg:w-56 xl:w-64 xl:gap-4 xl:p-4">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-1.5 xl:gap-2">
+            <ReceiptText className="size-4 text-foreground xl:size-5" />
+            <h2 className="text-sm font-bold tracking-tight text-foreground xl:text-lg">
               Receipts
             </h2>
           </div>
@@ -146,16 +175,16 @@ export default function Receipt() {
       </div>
 
       {/* Right Pane: Full-Width Enterprise Invoice View */}
-      <div className="flex-1 h-full flex flex-col border border-sidebar-border rounded-lg bg-background shadow-xs overflow-hidden min-w-0">
+      <div className="flex h-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-sidebar-border bg-background shadow-xs">
         {activeReceipt ? (
           <>
             {/* Top Header Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 sm:px-8 py-5 border-b border-sidebar-border bg-sidebar shrink-0">
+            <div className="flex shrink-0 flex-col justify-between gap-3 border-b border-sidebar-border bg-sidebar px-4 py-3 sm:flex-row sm:items-center sm:px-5 xl:gap-4 xl:px-6 xl:py-4">
               <div className="flex flex-col">
-                <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+                <h1 className="text-lg font-extrabold tracking-tight text-foreground xl:text-2xl">
                   {activeReceipt.customerName}
                 </h1>
-                <span className="text-xs text-muted-foreground font-mono mt-0.5">
+                <span className="mt-0.5 font-mono text-[11px] text-muted-foreground xl:text-xs">
                   Invoice Date:{" "}
                   {new Date(activeReceipt.date).toLocaleDateString("en-IN", {
                     day: "2-digit",
@@ -186,15 +215,15 @@ export default function Receipt() {
             </div>
 
             {/* Full-Width Document View Area */}
-            <ScrollArea className="flex-1 p-6 sm:p-8">
-              <div className="w-full flex flex-col gap-8 text-foreground max-w-none">
+            <ScrollArea className="flex-1 p-4 sm:p-5 xl:p-6">
+              <div className="flex w-full max-w-none flex-col gap-5 text-foreground xl:gap-8">
                 {/* Billed To & Dates */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:gap-6">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground xl:text-[11px]">
                       Billed To Customer
                     </span>
-                    <span className="font-extrabold text-xl text-foreground">
+                    <span className="text-base font-extrabold text-foreground xl:text-xl">
                       {activeReceipt.customerName}
                     </span>
                     {activeReceipt.phone && (

@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { useAppSelector } from "@/lib/store/hooks";
+import type { LedgerNavState } from "@/lib/navigation-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,14 +36,61 @@ import { printLedger } from "@/lib/pdf";
 
 export default function Ledger() {
   const ledger = useAppSelector((s) => s.ledger.entries);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [selectedOrgId, setSelectedOrgId] = useState<string>(
-    ledger[0]?.organization.id || "",
+  const pendingNav = useRef<LedgerNavState | null>(
+    (location.state as LedgerNavState | null) ?? null,
   );
+
+  const [selectedOrgId, setSelectedOrgId] = useState<string>(() => {
+    const nav = location.state as LedgerNavState | null;
+    return nav?.organizationId || ledger[0]?.organization.id || "";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "DEBIT" | "CREDIT">(
     "ALL",
   );
+  const [highlightedTxnId, setHighlightedTxnId] = useState<string | null>(
+    () => {
+      const nav = location.state as LedgerNavState | null;
+      return nav?.transactionId || null;
+    },
+  );
+
+  // Deep-link from dashboard search: select party (+ optional transaction)
+  useEffect(() => {
+    const state =
+      pendingNav.current || (location.state as LedgerNavState | null);
+    if (!state?.organizationId && !state?.transactionId) return;
+    if (!ledger.length) return;
+
+    let orgId = state.organizationId;
+    if (!orgId && state.transactionId) {
+      const entry = ledger.find((e) =>
+        e.transactions.some((t) => t.id === state.transactionId),
+      );
+      orgId = entry?.organization.id;
+    }
+
+    if (orgId && ledger.some((e) => e.organization.id === orgId)) {
+      setSelectedOrgId(orgId);
+      setSearchQuery("");
+      setTypeFilter("ALL");
+      if (state.transactionId) setHighlightedTxnId(state.transactionId);
+      pendingNav.current = null;
+      if (location.state) {
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    }
+  }, [ledger, location.state, location.pathname, navigate]);
+
+  // Clear transaction highlight after a short moment
+  useEffect(() => {
+    if (!highlightedTxnId) return;
+    const t = window.setTimeout(() => setHighlightedTxnId(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [highlightedTxnId]);
 
   const filteredOrgs = useMemo(() => {
     return ledger.filter((item) => {
@@ -57,7 +106,9 @@ export default function Ledger() {
 
   const activeEntry = useMemo(() => {
     return (
-      ledger.find((item) => item.organization.id === selectedOrgId) || ledger[0]
+      ledger.find((item) => item.organization.id === selectedOrgId) ||
+      ledger[0] ||
+      null
     );
   }, [ledger, selectedOrgId]);
 
@@ -95,13 +146,13 @@ export default function Ledger() {
   };
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full gap-1.5 overflow-hidden bg-background p-1.5 text-foreground xl:gap-2 xl:p-2">
       {/* Left Pane: Parties & Organizations */}
-      <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Building2 className="size-5 text-foreground" />
-            <h2 className="font-bold text-lg tracking-tight text-foreground">
+      <div className="flex h-full w-52 shrink-0 flex-col gap-3 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-3 shadow-sm lg:w-56 xl:w-64 xl:gap-4 xl:p-4">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-1.5 xl:gap-2">
+            <Building2 className="size-4 text-foreground xl:size-5" />
+            <h2 className="text-sm font-bold tracking-tight text-foreground xl:text-lg">
               Parties
             </h2>
           </div>
@@ -169,15 +220,15 @@ export default function Ledger() {
       </div>
 
       {/* Right Pane: Party Ledger & Transactions */}
-      <div className="flex-1 h-full flex flex-col gap-6 border border-sidebar-border rounded-lg bg-sidebar p-6 shadow-sm overflow-hidden min-w-0">
+      <div className="flex h-full min-w-0 flex-1 flex-col gap-4 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-4 shadow-sm xl:gap-6 xl:p-6">
         {activeEntry ? (
           <>
             {/* Top Party Profile Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sidebar-border">
-              <div className="flex justify-between w-full items-center gap-4">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2.5">
-                    <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+            <div className="flex flex-col justify-between gap-3 border-b border-sidebar-border pb-3 sm:flex-row sm:items-center xl:gap-4 xl:pb-4">
+              <div className="flex w-full items-center justify-between gap-3 xl:gap-4">
+                <div className="flex flex-col gap-0.5 xl:gap-1">
+                  <div className="flex items-center gap-2 xl:gap-2.5">
+                    <h1 className="text-lg font-extrabold tracking-tight text-foreground xl:text-2xl">
                       {activeEntry.organization.name}
                     </h1>
                   </div>
@@ -232,7 +283,7 @@ export default function Ledger() {
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Total Debit (Given)
                     </span>
-                    <span className="text-2xl font-mono font-extrabold text-foreground">
+                    <span className="font-mono text-lg font-extrabold text-foreground xl:text-2xl">
                       ₹{totalDebit.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -248,7 +299,7 @@ export default function Ledger() {
                     <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Total Credit (Received)
                     </span>
-                    <span className="text-2xl font-mono font-extrabold text-foreground">
+                    <span className="font-mono text-lg font-extrabold text-foreground xl:text-2xl">
                       ₹{totalCredit.toLocaleString("en-IN")}
                     </span>
                   </div>
@@ -265,7 +316,7 @@ export default function Ledger() {
                       Net Balance
                     </span>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-mono font-extrabold text-foreground">
+                      <span className="font-mono text-lg font-extrabold text-foreground xl:text-2xl">
                         ₹{Math.abs(netBalance).toLocaleString("en-IN")}
                       </span>
                       <Badge
@@ -344,10 +395,17 @@ export default function Ledger() {
                       },
                     );
 
+                    const isHighlighted = highlightedTxnId === t.id;
+
                     return (
                       <TableRow
                         key={t.id}
-                        className="group border-sidebar-border hover:bg-muted/50"
+                        data-highlighted={isHighlighted || undefined}
+                        className={cn(
+                          "group border-sidebar-border hover:bg-muted/50",
+                          isHighlighted &&
+                            "bg-foreground/5 ring-1 ring-inset ring-foreground/20",
+                        )}
                       >
                         <TableCell className="font-mono text-xs text-muted-foreground">
                           {dateStr}

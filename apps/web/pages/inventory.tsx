@@ -1,5 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router";
 import { useAppSelector } from "@/lib/store/hooks";
+import type { InventoryNavState } from "@/lib/navigation-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -29,14 +31,91 @@ import { cn } from "@/lib/utils";
 
 export default function Inventory() {
   const collections = useAppSelector((s) => s.inventory.collections);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Capture search deep-link once on mount (before effects that default to 1st item)
+  const pendingNav = useRef<InventoryNavState | null>(
+    (location.state as InventoryNavState | null) ?? null,
+  );
+  /** While true, never auto-pick filteredItems[0] */
+  const selectionLocked = useRef(
+    !!(
+      (location.state as InventoryNavState | null)?.itemId ||
+      (location.state as InventoryNavState | null)?.collectionId
+    ),
+  );
 
   const [selectedCollectionId, setSelectedCollectionId] = useState<string>(
-    collections[0]?.id || "",
+    () => {
+      const nav = location.state as InventoryNavState | null;
+      if (nav?.collectionId) return nav.collectionId;
+      return collections[0]?.id || "";
+    },
   );
   const [collectionSearch, setCollectionSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
-  const [selectedItemId, setSelectedItemId] = useState<string>("");
+  const [selectedItemId, setSelectedItemId] = useState<string>(() => {
+    const nav = location.state as InventoryNavState | null;
+    return nav?.itemId || "";
+  });
+
+  // Apply / re-apply deep-link when collections load or location.state arrives
+  useEffect(() => {
+    const state =
+      pendingNav.current || (location.state as InventoryNavState | null);
+    if (!state?.collectionId && !state?.itemId) return;
+    if (!collections.length) return;
+
+    let applied = false;
+
+    if (state.collectionId) {
+      const col = collections.find((c) => c.id === state.collectionId);
+      if (col) {
+        setSelectedCollectionId(col.id);
+        setCollectionSearch("");
+        setSelectedCategory("ALL");
+        setItemSearch("");
+        applied = true;
+
+        if (state.itemId) {
+          const hasItem = col.data.some((i) => i.id === state.itemId);
+          if (hasItem) {
+            setSelectedItemId(state.itemId);
+            selectionLocked.current = true;
+          }
+        } else {
+          // Collection only: unlock so first item of that collection can be chosen
+          selectionLocked.current = false;
+          setSelectedItemId("");
+        }
+      }
+    } else if (state.itemId) {
+      // Find collection containing the item
+      const col = collections.find((c) =>
+        c.data.some((i) => i.id === state.itemId),
+      );
+      if (col) {
+        setSelectedCollectionId(col.id);
+        setCollectionSearch("");
+        setSelectedCategory("ALL");
+        setItemSearch("");
+        setSelectedItemId(state.itemId!);
+        selectionLocked.current = true;
+        applied = true;
+      }
+    }
+
+    if (applied) {
+      pendingNav.current = null;
+      // Clear router state without remounting / resetting local state
+      if (location.state) {
+        navigate(location.pathname, { replace: true, state: null });
+      }
+    }
+  }, [collections, location.state, location.pathname, navigate]);
+
   const filteredCollections = useMemo(() => {
     return collections.filter(
       (c) =>
@@ -96,25 +175,41 @@ export default function Inventory() {
 
   const activeItem = useMemo(() => {
     if (!activeCollection) return null;
-    return (
-      activeCollection.data.find((item) => item.id === selectedItemId) ||
-      activeCollection.data[0] ||
-      null
-    );
-  }, [activeCollection, selectedItemId]);
+    // Prefer explicit selection (including deep-link) over "first in list"
+    const byId = selectedItemId
+      ? activeCollection.data.find((item) => item.id === selectedItemId)
+      : undefined;
+    if (byId) return byId;
+    // Fall back to first filtered, then first in catalog
+    return filteredItems[0] || activeCollection.data[0] || null;
+  }, [activeCollection, selectedItemId, filteredItems]);
 
+  // Default selection only when nothing locked and no valid selection
   useEffect(() => {
-    if (filteredItems.length > 0) {
+    if (selectionLocked.current) {
+      // Unlock once the target item is visible in the active catalog
       if (
-        !selectedItemId ||
-        !filteredItems.some((i) => i.id === selectedItemId)
+        selectedItemId &&
+        activeCollection?.data.some((i) => i.id === selectedItemId)
       ) {
-        setSelectedItemId(filteredItems[0].id);
+        // Keep lock until user changes selection manually? Unlock after settled
+        // so list filters can work; selection already applied.
+        selectionLocked.current = false;
       }
-    } else {
-      setSelectedItemId("");
+      return;
     }
-  }, [filteredItems, selectedItemId]);
+
+    if (filteredItems.length === 0) {
+      return;
+    }
+
+    const stillValid =
+      selectedItemId && filteredItems.some((i) => i.id === selectedItemId);
+    if (stillValid) return;
+
+    // Only auto-select first when selection is empty or invalid for current filter
+    setSelectedItemId(filteredItems[0].id);
+  }, [filteredItems, selectedItemId, activeCollection]);
 
   const getItemSubtitle = (item: any, collection?: any) => {
     if (!item || !item.values) return "";
@@ -170,13 +265,13 @@ export default function Inventory() {
   };
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full gap-1.5 overflow-hidden bg-background p-1.5 text-foreground xl:gap-2 xl:p-2">
       {/* Left Pane: Collections Catalog */}
-      <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Layers className="size-5 text-foreground" />
-            <h2 className="font-bold text-lg tracking-tight text-foreground">
+      <div className="flex h-full w-52 shrink-0 flex-col gap-3 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-3 shadow-sm lg:w-56 xl:w-64 xl:gap-4 xl:p-4">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center gap-1.5 xl:gap-2">
+            <Layers className="size-4 text-foreground xl:size-5" />
+            <h2 className="text-sm font-bold tracking-tight text-foreground xl:text-lg">
               Catalogs
             </h2>
           </div>
@@ -200,8 +295,12 @@ export default function Inventory() {
                 <div
                   key={c.id}
                   onClick={() => {
+                    selectionLocked.current = false;
                     setSelectedCollectionId(c.id);
                     setSelectedCategory("ALL");
+                    setItemSearch("");
+                    // First item of the new catalog is chosen by the default-select effect
+                    setSelectedItemId("");
                   }}
                   className={cn(
                     "group relative flex items-center justify-between p-3.5 rounded-lg border transition-all cursor-pointer",
@@ -238,12 +337,12 @@ export default function Inventory() {
           </div>
         </ScrollArea>
       </div>
-      {/*Left Pane: Collection List */}
-      <div className="w-80 h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-2">
-            <Box className="size-5 text-foreground" />
-            <h2 className="font-bold text-lg tracking-tight text-foreground">
+      {/* Middle Pane: Collection items */}
+      <div className="flex h-full w-52 shrink-0 flex-col gap-3 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-3 shadow-sm lg:w-56 xl:w-64 xl:gap-4 xl:p-4">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex min-w-0 items-center gap-1.5 xl:gap-2">
+            <Box className="size-4 shrink-0 text-foreground xl:size-5" />
+            <h2 className="truncate text-sm font-bold tracking-tight text-foreground xl:text-lg">
               {activeCollection?.name || "Select a catalog"}
             </h2>
           </div>
@@ -267,6 +366,7 @@ export default function Inventory() {
                 <div
                   key={c.id}
                   onClick={() => {
+                    selectionLocked.current = false;
                     setSelectedItemId(c.id);
                   }}
                   className={cn(
@@ -317,16 +417,16 @@ export default function Inventory() {
       </div>
 
       {/* Right Pane: Item Details matching mobile itemId.tsx */}
-      <div className="flex-1 h-full border border-sidebar-border rounded-lg bg-background shadow-xs overflow-hidden min-w-0">
-        <ScrollArea className="h-full p-6 sm:p-8">
+      <div className="h-full min-w-0 flex-1 overflow-hidden rounded-lg border border-sidebar-border bg-background shadow-xs">
+        <ScrollArea className="h-full p-4 sm:p-5 xl:p-6">
           {activeCollection && activeItem ? (
             <div className="w-full">
               {/* Header Title Section */}
-              <div className="mb-6">
-                <h2 className="mb-1 text-3xl font-black text-foreground">
+              <div className="mb-4 xl:mb-6">
+                <h2 className="mb-0.5 text-xl font-black text-foreground xl:mb-1 xl:text-3xl">
                   {getItemTitle(activeItem, activeCollection)}
                 </h2>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-xs font-medium text-muted-foreground xl:text-sm">
                   Added:{" "}
                   {(() => {
                     const d = new Date(activeItem.createdAt);
@@ -343,7 +443,7 @@ export default function Inventory() {
               </div>
 
               {/* Divider */}
-              <div className="mb-6 h-[1px] bg-sidebar-border" />
+              <div className="mb-4 h-px bg-sidebar-border xl:mb-6" />
 
               {/* Content Area / List UI */}
               <div className="flex flex-col">

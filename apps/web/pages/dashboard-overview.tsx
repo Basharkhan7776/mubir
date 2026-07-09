@@ -1,6 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAppSelector } from "@/lib/store/hooks";
+import {
+  inventoryNav,
+  ledgerNav,
+  receiptsNav,
+} from "@/lib/navigation-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +22,7 @@ import {
   Wallet,
   ArrowUpRight,
   BarChart3,
+  Layers,
 } from "lucide-react";
 
 function getItemTitle(item: any, collection?: any): string {
@@ -120,28 +126,68 @@ export default function DashboardOverview() {
   }, [collections, ledger, receipts]);
 
   const searchResults = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return { items: [], parties: [], txns: [], receipts: [] };
+    const raw = searchQuery.trim();
+    const query = raw.toLowerCase();
+    if (!query) return { items: [], parties: [], txns: [], receipts: [], collections: [] };
+
+    // Support path-like queries: "electronics > ipad" or "electronics/ipad"
+    const pathParts = query
+      .split(/[>/|]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const tokens = pathParts.length > 1 ? pathParts : query.split(/\s+/).filter(Boolean);
+
+    const textMatch = (haystack: string) => {
+      const h = haystack.toLowerCase();
+      if (h.includes(query)) return true;
+      return tokens.every((t) => h.includes(t));
+    };
+
+    const matchedCollections: Array<{
+      id: string;
+      name: string;
+      itemCount: number;
+      description?: string;
+    }> = [];
+
+    collections.forEach((c) => {
+      const bag = `${c.name} ${c.description || ""}`;
+      if (textMatch(bag)) {
+        matchedCollections.push({
+          id: c.id,
+          name: c.name,
+          itemCount: c.data.length,
+          description: c.description,
+        });
+      }
+    });
 
     const matchedItems: Array<{
       collection: any;
       item: any;
       title: string;
       subtitle: string;
+      path: string;
       price: number;
       stock: number;
     }> = [];
 
     collections.forEach((c) => {
       c.data.forEach((item) => {
-        const values = Object.values(item.values).map(String);
-        const matches = values.some((v) => v.toLowerCase().includes(query));
-        if (matches) {
+        const title = getItemTitle(item, c);
+        const subtitle = getItemSubtitle(item, c);
+        const values = Object.values(item.values || {}).map(String).join(" ");
+        const bag = `${c.name} ${title} ${subtitle} ${values} ${item.id}`;
+        // Path-aware: if "electronics > ipad", require collection + item tokens
+        const collectionOk =
+          pathParts.length <= 1 || textMatch(`${c.name} ${c.description || ""}`) || tokens.some((t) => c.name.toLowerCase().includes(t));
+        if (collectionOk && textMatch(bag)) {
           matchedItems.push({
             collection: c,
             item,
-            title: getItemTitle(item, c),
-            subtitle: getItemSubtitle(item, c),
+            title,
+            subtitle,
+            path: `${c.name} › ${title}`,
             price: getItemPrice(item),
             stock: getItemStock(item),
           });
@@ -149,23 +195,48 @@ export default function DashboardOverview() {
       });
     });
 
-    const matchedParties: Array<{ id: string; name: string; phone?: string; email?: string }> = [];
-    const matchedTxns: Array<{ partyName: string; type: string; amount: number; remark: string; date: string }> = [];
+    // Rank: exact title start > includes query > rest
+    matchedItems.sort((a, b) => {
+      const at = a.title.toLowerCase();
+      const bt = b.title.toLowerCase();
+      const aExact = at === query || at.startsWith(query) ? 0 : at.includes(query) ? 1 : 2;
+      const bExact = bt === query || bt.startsWith(query) ? 0 : bt.includes(query) ? 1 : 2;
+      return aExact - bExact;
+    });
+
+    const matchedParties: Array<{
+      id: string;
+      name: string;
+      phone?: string;
+      email?: string;
+    }> = [];
+    const matchedTxns: Array<{
+      organizationId: string;
+      transactionId: string;
+      partyName: string;
+      type: string;
+      amount: number;
+      remark: string;
+      date: string;
+    }> = [];
+
     ledger.forEach((entry) => {
       const org = entry.organization;
-      if (
-        org.name.toLowerCase().includes(query) ||
-        (org.phone && org.phone.toLowerCase().includes(query)) ||
-        (org.email && org.email.toLowerCase().includes(query))
-      ) {
-        matchedParties.push({ id: org.id, name: org.name, phone: org.phone, email: org.email });
+      const partyBag = `${org.name} ${org.phone || ""} ${org.email || ""} ${org.id}`;
+      if (textMatch(partyBag)) {
+        matchedParties.push({
+          id: org.id,
+          name: org.name,
+          phone: org.phone,
+          email: org.email,
+        });
       }
       entry.transactions.forEach((t) => {
-        if (
-          (t.remark && t.remark.toLowerCase().includes(query)) ||
-          (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(query)))
-        ) {
+        const txnBag = `${t.remark || ""} ${(t.tags || []).join(" ")} ${t.amount} ${t.type} ${org.name}`;
+        if (textMatch(txnBag)) {
           matchedTxns.push({
+            organizationId: org.id,
+            transactionId: t.id,
             partyName: org.name,
             type: t.type,
             amount: Number(t.amount) || 0,
@@ -176,20 +247,19 @@ export default function DashboardOverview() {
       });
     });
 
-    const matchedReceipts = receipts.filter((r) => {
-      return (
-        r.customerName.toLowerCase().includes(query) ||
-        r.id.toLowerCase().includes(query) ||
-        (r.description && r.description.toLowerCase().includes(query)) ||
-        r.items.some((i) => i.name.toLowerCase().includes(query))
-      );
-    });
+    const matchedReceipts = receipts
+      .filter((r) => {
+        const bag = `${r.customerName} ${r.phone || ""} ${r.id} ${r.description || ""} ${r.items.map((i) => i.name).join(" ")}`;
+        return textMatch(bag);
+      })
+      .map((r) => r);
 
     return {
       items: matchedItems,
       parties: matchedParties,
       txns: matchedTxns,
       receipts: matchedReceipts,
+      collections: matchedCollections,
     };
   }, [searchQuery, collections, ledger, receipts]);
 
@@ -197,471 +267,615 @@ export default function DashboardOverview() {
     searchResults.items.length > 0 ||
     searchResults.parties.length > 0 ||
     searchResults.txns.length > 0 ||
-    searchResults.receipts.length > 0;
+    searchResults.receipts.length > 0 ||
+    searchResults.collections.length > 0;
+
+  const matchCount =
+    searchResults.items.length +
+    searchResults.parties.length +
+    searchResults.txns.length +
+    searchResults.receipts.length +
+    searchResults.collections.length;
+
+  const goInventory = useCallback(
+    (collectionId: string, itemId?: string, itemQuery?: string) => {
+      navigate("/app/inventory", {
+        state: inventoryNav(collectionId, itemId, itemQuery),
+      });
+    },
+    [navigate],
+  );
+
+  const goLedger = useCallback(
+    (organizationId: string, transactionId?: string, partyQuery?: string) => {
+      navigate("/app/ledger", {
+        state: ledgerNav(organizationId, transactionId, partyQuery),
+      });
+    },
+    [navigate],
+  );
+
+  const goReceipt = useCallback(
+    (receiptId: string, receiptQuery?: string) => {
+      navigate("/app/receipts", {
+        state: receiptsNav(receiptId, receiptQuery),
+      });
+    },
+    [navigate],
+  );
+
+  const renderSearchHit = (
+    key: string,
+    onClick: () => void,
+    title: string,
+    subtitle: string,
+    trailing?: React.ReactNode,
+  ) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      className="w-full cursor-pointer rounded-lg border border-sidebar-border bg-background p-2 text-left transition-colors hover:bg-muted/50 xl:p-2.5"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-1.5">
+        <span className="truncate text-xs font-semibold text-foreground xl:text-sm">
+          {title}
+        </span>
+        {trailing}
+      </div>
+      {subtitle ? (
+        <div className="mt-0.5 truncate text-[10px] text-muted-foreground xl:text-xs">
+          {subtitle}
+        </div>
+      ) : null}
+    </button>
+  );
+
+  const sectionHeader = (
+    icon: React.ReactNode,
+    label: string,
+    count: number,
+    viewAll: () => void,
+  ) => (
+    <div className="flex items-center justify-between gap-1">
+      <span className="flex min-w-0 items-center gap-1 text-[10px] font-bold text-foreground xl:gap-1.5 xl:text-xs">
+        {icon}
+        <span className="truncate">
+          {label} ({count})
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={viewAll}
+        className="shrink-0 cursor-pointer text-[9px] font-semibold text-muted-foreground hover:text-foreground xl:text-[10px]"
+      >
+        View all
+      </button>
+    </div>
+  );
 
   return (
-    <div className="flex h-screen w-full gap-2 p-2 overflow-hidden bg-background text-foreground">
-      {/* Left Pane: Search + Results */}
-      <div className="w-[420px] h-full flex flex-col gap-4 border border-sidebar-border rounded-lg bg-sidebar p-4 shadow-sm shrink-0 overflow-hidden">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col gap-1.5 overflow-hidden bg-background p-1.5 text-foreground xl:flex-row xl:gap-2 xl:p-2">
+      {/* Search pane — full width on lg, side column from xl */}
+      <aside className="flex max-h-[38vh] min-h-0 w-full shrink-0 flex-col gap-2.5 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-2.5 shadow-sm xl:max-h-none xl:h-full xl:w-[min(20rem,28%)] xl:gap-3 xl:p-3 2xl:w-80 2xl:gap-4 2xl:p-4">
         <div className="relative shrink-0">
-          <Search className="absolute left-3.5 top-3.5 size-5 text-muted-foreground pointer-events-none" />
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground xl:size-4" />
           <Input
-            placeholder="Search across inventories, parties, ledger entries, receipts..."
+            placeholder="Search inventories, parties, receipts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-11 h-12 text-base font-medium bg-background border-sidebar-border rounded-lg shadow-xs focus-visible:ring-1"
+            className="h-8 rounded-lg border-sidebar-border bg-background pl-8 pr-16 text-xs font-medium shadow-xs focus-visible:ring-1 xl:h-10 xl:pl-9 xl:text-sm 2xl:h-11 2xl:text-base"
           />
-          {searchQuery && (
-            <span
+          {searchQuery ? (
+            <button
+              type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3.5 top-3.5 text-xs font-bold font-mono px-2 py-1 bg-muted rounded cursor-pointer text-muted-foreground hover:text-foreground"
+              className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded bg-muted px-1.5 py-0.5 font-mono text-[9px] font-bold text-muted-foreground hover:text-foreground xl:text-[10px]"
             >
               CLEAR
-            </span>
-          )}
+            </button>
+          ) : null}
         </div>
 
-        <ScrollArea className="flex-1 -mx-2 px-2">
+        <ScrollArea className="min-h-0 flex-1">
           {searchQuery.trim() ? (
-            <div className="flex flex-col gap-3 pr-3 pb-4">
-              <div className="flex items-center justify-between border-b border-sidebar-border pb-2">
-                <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="flex flex-col gap-2.5 pr-2 pb-3 xl:gap-3">
+              <div className="flex items-center justify-between border-b border-sidebar-border pb-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground xl:text-[11px]">
                   Results
                 </span>
-                <span className="text-xs font-mono text-muted-foreground">
-                  {searchResults.items.length + searchResults.parties.length + searchResults.txns.length + searchResults.receipts.length} matches
+                <span className="font-mono text-[9px] text-muted-foreground xl:text-[10px]">
+                  {matchCount} matches
                 </span>
               </div>
 
-              {!hasSearchResults && (
-                <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground border border-sidebar-border border-dashed rounded-lg">
-                  <Search className="size-10 stroke-1 opacity-40" />
-                  <p className="font-semibold text-sm">No results found</p>
-                  <p className="text-xs">Try different keywords.</p>
+              {!hasSearchResults ? (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-sidebar-border py-8 text-muted-foreground">
+                  <Search className="size-7 stroke-1 opacity-40 xl:size-9" />
+                  <p className="text-xs font-semibold">No results found</p>
+                  <p className="text-[10px] xl:text-xs">Try different keywords.</p>
                 </div>
-              )}
+              ) : null}
 
-              {searchResults.items.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Box className="size-3.5" /> Items ({searchResults.items.length})
-                    </span>
-                    <span
-                      onClick={() => navigate("/app/inventory")}
-                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      View all
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {searchResults.items.slice(0, 5).map((hit, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => navigate("/app/inventory")}
-                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+              {searchResults.collections.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {sectionHeader(
+                    <Layers className="size-3 shrink-0 xl:size-3.5" />,
+                    "Collections",
+                    searchResults.collections.length,
+                    () => navigate("/app/inventory"),
+                  )}
+                  {searchResults.collections.slice(0, 4).map((c) =>
+                    renderSearchHit(
+                      `col-${c.id}`,
+                      () => goInventory(c.id),
+                      c.name,
+                      c.description || `${c.itemCount} items · Inventory › ${c.name}`,
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-sidebar-border bg-sidebar text-[8px] xl:text-[9px]"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm text-foreground truncate">{hit.title}</span>
-                          <Badge variant="outline" className="text-[9px] font-mono border-sidebar-border bg-sidebar ml-1 shrink-0">{hit.collection.name}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
-                          <span>{hit.subtitle}</span>
-                          <span className="font-mono font-semibold text-foreground">₹{hit.price.toLocaleString("en-IN")} ({hit.stock})</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                        Catalog
+                      </Badge>,
+                    ),
+                  )}
                 </div>
-              )}
+              ) : null}
 
-              {searchResults.parties.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Building2 className="size-3.5" /> Parties ({searchResults.parties.length})
-                    </span>
-                    <span
-                      onClick={() => navigate("/app/ledger")}
-                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      View all
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {searchResults.parties.slice(0, 5).map((party, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => navigate("/app/ledger")}
-                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+              {searchResults.items.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {sectionHeader(
+                    <Box className="size-3 shrink-0 xl:size-3.5" />,
+                    "Items",
+                    searchResults.items.length,
+                    () => {
+                      const first = searchResults.items[0];
+                      if (first) goInventory(first.collection.id, first.item.id);
+                      else navigate("/app/inventory");
+                    },
+                  )}
+                  {searchResults.items.slice(0, 6).map((hit) =>
+                    renderSearchHit(
+                      `item-${hit.item.id}`,
+                      () =>
+                        goInventory(
+                          hit.collection.id,
+                          hit.item.id,
+                          hit.title,
+                        ),
+                      hit.title,
+                      `${hit.path}${hit.subtitle ? ` · ${hit.subtitle}` : ""} · ₹${hit.price.toLocaleString("en-IN")} (${hit.stock})`,
+                      <Badge
+                        variant="outline"
+                        className="ml-1 shrink-0 border-sidebar-border bg-sidebar font-mono text-[8px] xl:text-[9px]"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm text-foreground">{party.name}</span>
-                          <Badge variant="outline" className="text-[9px] border-sidebar-border bg-sidebar">Party</Badge>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{party.phone || party.email || "No contact info"}</span>
-                      </div>
-                    ))}
-                  </div>
+                        {hit.collection.name}
+                      </Badge>,
+                    ),
+                  )}
                 </div>
-              )}
+              ) : null}
 
-              {searchResults.txns.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <FileText className="size-3.5" /> Transactions ({searchResults.txns.length})
-                    </span>
-                    <span
-                      onClick={() => navigate("/app/ledger")}
-                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      View all
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {searchResults.txns.slice(0, 4).map((t, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => navigate("/app/ledger")}
-                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+              {searchResults.parties.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {sectionHeader(
+                    <Building2 className="size-3 shrink-0 xl:size-3.5" />,
+                    "Parties",
+                    searchResults.parties.length,
+                    () => {
+                      const first = searchResults.parties[0];
+                      if (first) goLedger(first.id);
+                      else navigate("/app/ledger");
+                    },
+                  )}
+                  {searchResults.parties.slice(0, 5).map((party) =>
+                    renderSearchHit(
+                      `party-${party.id}`,
+                      () => goLedger(party.id, undefined, party.name),
+                      party.name,
+                      `Ledger › ${party.name}${party.phone ? ` · ${party.phone}` : party.email ? ` · ${party.email}` : ""}`,
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-sidebar-border bg-sidebar text-[8px] xl:text-[9px]"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-sm text-foreground truncate">{t.remark || "No remark"}</span>
-                          <Badge variant="outline" className="font-mono font-bold text-[10px] shrink-0 border-sidebar-border bg-sidebar">
-                            {t.type === "DEBIT" ? "-" : "+"} ₹{t.amount.toLocaleString("en-IN")}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-muted-foreground">{t.partyName} • {new Date(t.date).toLocaleDateString("en-IN")}</span>
-                      </div>
-                    ))}
-                  </div>
+                        Party
+                      </Badge>,
+                    ),
+                  )}
                 </div>
-              )}
+              ) : null}
 
-              {searchResults.receipts.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <ReceiptText className="size-3.5" /> Receipts ({searchResults.receipts.length})
-                    </span>
-                    <span
-                      onClick={() => navigate("/app/receipts")}
-                      className="text-[10px] font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      View all
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {searchResults.receipts.slice(0, 5).map((r, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => navigate("/app/receipts")}
-                        className="p-2.5 rounded-lg border border-sidebar-border bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+              {searchResults.txns.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {sectionHeader(
+                    <FileText className="size-3 shrink-0 xl:size-3.5" />,
+                    "Transactions",
+                    searchResults.txns.length,
+                    () => {
+                      const first = searchResults.txns[0];
+                      if (first)
+                        goLedger(first.organizationId, first.transactionId);
+                      else navigate("/app/ledger");
+                    },
+                  )}
+                  {searchResults.txns.slice(0, 5).map((t) =>
+                    renderSearchHit(
+                      `txn-${t.transactionId}`,
+                      () =>
+                        goLedger(
+                          t.organizationId,
+                          t.transactionId,
+                          t.partyName,
+                        ),
+                      t.remark || "No remark",
+                      `Ledger › ${t.partyName} · ${new Date(t.date).toLocaleDateString("en-IN")}`,
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-sidebar-border bg-sidebar font-mono text-[9px] font-bold xl:text-[10px]"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-sm text-foreground truncate">{r.customerName}</span>
-                          <Badge variant="outline" className="text-[9px] font-mono border-sidebar-border bg-sidebar">#{r.id}</Badge>
-                        </div>
-                        <span className="text-xs text-muted-foreground truncate">{r.description || `${r.items.length} items`}</span>
-                      </div>
-                    ))}
-                  </div>
+                        {t.type === "DEBIT" ? "-" : "+"} ₹
+                        {t.amount.toLocaleString("en-IN")}
+                      </Badge>,
+                    ),
+                  )}
                 </div>
-              )}
+              ) : null}
+
+              {searchResults.receipts.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {sectionHeader(
+                    <ReceiptText className="size-3 shrink-0 xl:size-3.5" />,
+                    "Receipts",
+                    searchResults.receipts.length,
+                    () => {
+                      const first = searchResults.receipts[0];
+                      if (first) goReceipt(first.id);
+                      else navigate("/app/receipts");
+                    },
+                  )}
+                  {searchResults.receipts.slice(0, 5).map((r) =>
+                    renderSearchHit(
+                      `rcpt-${r.id}`,
+                      () => goReceipt(r.id, r.customerName),
+                      r.customerName,
+                      `Receipts › ${r.customerName}${r.description ? ` · ${r.description}` : ` · ${r.items.length} items`}`,
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-sidebar-border bg-sidebar font-mono text-[8px] xl:text-[9px]"
+                      >
+                        #{r.id.slice(0, 8)}
+                      </Badge>,
+                    ),
+                  )}
+                </div>
+              ) : null}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-3 text-muted-foreground px-2">
-              <div className="size-12 rounded-full border-2 border-sidebar-border flex items-center justify-center">
-                <Search className="size-5 stroke-1" />
+            <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-2 px-2 py-6 text-muted-foreground xl:min-h-[220px] xl:gap-3">
+              <div className="flex size-9 items-center justify-center rounded-full border-2 border-sidebar-border xl:size-12">
+                <Search className="size-4 stroke-1 xl:size-5" />
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm text-foreground">Universal Search</p>
-                <p className="text-xs mt-0.5">Search across everything instantly.</p>
+                <p className="text-xs font-bold text-foreground xl:text-sm">
+                  Universal Search
+                </p>
+                <p className="mt-0.5 text-[10px] xl:text-xs">
+                  Try &quot;Electronics &gt; iPad&quot; or a party name — click to open.
+                </p>
               </div>
             </div>
           )}
         </ScrollArea>
-      </div>
+      </aside>
 
-      {/* Right Pane: Premium Command Center Bento Grid */}
-      <div className="flex-1 h-full border border-sidebar-border rounded-lg bg-background shadow-xs overflow-hidden min-w-0">
-        <div className="flex flex-col h-full p-6 gap-6">
-          {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="size-5 text-foreground" />
-                <h2 className="font-extrabold text-xl tracking-tight text-foreground">
+      {/* Main command center */}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-sidebar-border bg-background shadow-xs">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 p-3 xl:gap-5 xl:p-5 2xl:p-6">
+          {/* Header */}
+          <header className="flex shrink-0 flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 xl:gap-2">
+                <Sparkles className="size-3.5 shrink-0 text-foreground xl:size-5" />
+                <h2 className="truncate text-sm font-extrabold tracking-tight text-foreground xl:text-lg 2xl:text-xl">
                   Mudir Store Intelligence
                 </h2>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Real-time agentic oversight across inventory, ledger settlements & invoices.
+              <p className="mt-0.5 text-[10px] text-muted-foreground xl:text-xs">
+                Overview of inventory, ledger & invoices
               </p>
             </div>
+            <Badge
+              variant="outline"
+              className="shrink-0 gap-1 border-sidebar-border bg-sidebar px-2 py-0.5 font-mono text-[9px] xl:gap-1.5 xl:px-2.5 xl:text-[10px] 2xl:text-[11px]"
+            >
+              <Cpu className="size-3 animate-pulse text-emerald-600" />
+              Live Local Store
+            </Badge>
+          </header>
 
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className="font-mono text-[11px] border-sidebar-border bg-sidebar gap-1.5 px-3 py-1"
-              >
-                <Cpu className="size-3.5 text-emerald-600 animate-pulse" /> Live Local Store
-              </Badge>
-            </div>
-          </div>
-
-          {/* Bento Grid Content */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pr-1 pb-6">
-              {/* Hero Bento Card: Total Store & Cashflow Valuation */}
-              <div className="sm:col-span-2 p-6 rounded-xl border border-sidebar-border bg-gradient-to-br from-card via-card to-muted/40 shadow-xs flex flex-col gap-6 relative overflow-hidden group">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-foreground text-background flex items-center justify-center font-bold">
-                      <Wallet className="size-4" />
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="grid grid-cols-1 gap-2.5 pb-4 pr-1 md:grid-cols-2 xl:gap-4 2xl:gap-5">
+              {/* Hero valuation */}
+              <div className="relative flex flex-col gap-3 overflow-hidden rounded-xl border border-sidebar-border bg-gradient-to-br from-card via-card to-muted/40 p-3 shadow-xs md:col-span-2 xl:gap-5 xl:p-5 2xl:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-foreground font-bold text-background xl:size-8">
+                      <Wallet className="size-3.5 xl:size-4" />
                     </div>
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground block">
+                    <div className="min-w-0">
+                      <span className="block text-[9px] font-bold uppercase tracking-widest text-muted-foreground xl:text-[10px] 2xl:text-[11px]">
                         Total Combined Store Valuation
                       </span>
-                      <span className="text-3xl font-black font-mono tracking-tight text-foreground">
-                        ₹{(totalInventoryValue + totalReceiptsRevenue).toLocaleString("en-IN")}
+                      <span className="block truncate font-mono text-xl font-black tracking-tight text-foreground xl:text-2xl 2xl:text-3xl">
+                        ₹
+                        {(
+                          totalInventoryValue + totalReceiptsRevenue
+                        ).toLocaleString("en-IN")}
                       </span>
                     </div>
                   </div>
-
-                  <Badge variant="outline" className="w-fit font-mono text-xs border-sidebar-border bg-background px-2.5 py-1">
-                    Currency: {userCurrency || "INR (₹)"}
+                  <Badge
+                    variant="outline"
+                    className="w-fit shrink-0 border-sidebar-border bg-background px-2 py-0.5 font-mono text-[9px] xl:text-[10px] 2xl:text-xs"
+                  >
+                    {userCurrency || "INR (₹)"}
                   </Badge>
                 </div>
 
                 <Separator className="bg-sidebar-border/80" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  <div
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:gap-3 2xl:gap-4">
+                  <button
+                    type="button"
                     onClick={() => navigate("/app/inventory")}
-                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                    className="group/item flex cursor-pointer flex-col gap-1 rounded-lg border border-sidebar-border/60 bg-background/80 p-2.5 text-left transition-all hover:border-foreground/30 hover:bg-muted/40 xl:gap-1.5 xl:p-3.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Box className="size-3.5" /> Inventory Value
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[10px] 2xl:text-xs">
+                        <Box className="size-3 shrink-0 xl:size-3.5" />
+                        <span className="truncate">Inventory Value</span>
                       </span>
-                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                      <ArrowUpRight className="size-3 shrink-0 text-muted-foreground transition-colors group-hover/item:text-foreground xl:size-3.5" />
                     </div>
-                    <span className="font-mono font-extrabold text-xl text-foreground">
+                    <span className="truncate font-mono text-base font-extrabold text-foreground xl:text-lg 2xl:text-xl">
                       ₹{totalInventoryValue.toLocaleString("en-IN")}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {totalItems} items across {totalCollections} catalogs
+                    <span className="text-[10px] text-muted-foreground xl:text-[11px]">
+                      {totalItems} items · {totalCollections} catalogs
                     </span>
-                  </div>
+                  </button>
 
-                  <div
+                  <button
+                    type="button"
                     onClick={() => navigate("/app/receipts")}
-                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                    className="group/item flex cursor-pointer flex-col gap-1 rounded-lg border border-sidebar-border/60 bg-background/80 p-2.5 text-left transition-all hover:border-foreground/30 hover:bg-muted/40 xl:gap-1.5 xl:p-3.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <ReceiptText className="size-3.5" /> Billed Revenue
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[10px] 2xl:text-xs">
+                        <ReceiptText className="size-3 shrink-0 xl:size-3.5" />
+                        <span className="truncate">Billed Revenue</span>
                       </span>
-                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                      <ArrowUpRight className="size-3 shrink-0 text-muted-foreground transition-colors group-hover/item:text-foreground xl:size-3.5" />
                     </div>
-                    <span className="font-mono font-extrabold text-xl text-foreground">
+                    <span className="truncate font-mono text-base font-extrabold text-foreground xl:text-lg 2xl:text-xl">
                       ₹{totalReceiptsRevenue.toLocaleString("en-IN")}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {totalReceipts} settled invoices archived
+                    <span className="text-[10px] text-muted-foreground xl:text-[11px]">
+                      {totalReceipts} settled invoices
                     </span>
-                  </div>
+                  </button>
 
-                  <div
+                  <button
+                    type="button"
                     onClick={() => navigate("/app/ledger")}
-                    className="flex flex-col gap-1.5 p-3.5 rounded-lg border border-sidebar-border/60 bg-background/80 hover:border-foreground/30 hover:bg-muted/40 transition-all cursor-pointer group/item"
+                    className="group/item flex cursor-pointer flex-col gap-1 rounded-lg border border-sidebar-border/60 bg-background/80 p-2.5 text-left transition-all hover:border-foreground/30 hover:bg-muted/40 xl:gap-1.5 xl:p-3.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Building2 className="size-3.5" /> Net Ledger Balance
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[10px] 2xl:text-xs">
+                        <Building2 className="size-3 shrink-0 xl:size-3.5" />
+                        <span className="truncate">Net Ledger</span>
                       </span>
-                      <ArrowUpRight className="size-3.5 text-muted-foreground group-hover/item:text-foreground transition-colors" />
+                      <ArrowUpRight className="size-3 shrink-0 text-muted-foreground transition-colors group-hover/item:text-foreground xl:size-3.5" />
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-mono font-extrabold text-xl text-foreground">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-1.5">
+                      <span className="truncate font-mono text-base font-extrabold text-foreground xl:text-lg 2xl:text-xl">
                         ₹{Math.abs(netBalance).toLocaleString("en-IN")}
                       </span>
                       <Badge
                         variant="outline"
-                        className="text-[10px] px-1.5 py-0 border-sidebar-border bg-sidebar"
+                        className="border-sidebar-border bg-sidebar px-1.5 py-0 text-[9px] xl:text-[10px]"
                       >
-                        {netBalance > 0 ? "You Give" : netBalance < 0 ? "You Get" : "Settled"}
+                        {netBalance > 0
+                          ? "You Give"
+                          : netBalance < 0
+                            ? "You Get"
+                            : "Settled"}
                       </Badge>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
-                      Across {totalParties} registered parties
+                    <span className="text-[10px] text-muted-foreground xl:text-[11px]">
+                      {totalParties} parties
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
-              {/* Bento Card 1: Inventory Management */}
-              <div
+              {/* Catalog & Stock */}
+              <button
+                type="button"
                 onClick={() => navigate("/app/inventory")}
-                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+                className="group flex min-w-0 cursor-pointer flex-col justify-between rounded-xl border border-sidebar-border bg-card p-3 text-left transition-all hover:border-foreground/30 hover:shadow-sm xl:p-4 2xl:p-5"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Box className="size-4 text-foreground" /> Catalog & Stock
+                  <div className="mb-2 flex items-center justify-between gap-2 xl:mb-3">
+                    <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[11px]">
+                      <Box className="size-3.5 shrink-0 text-foreground xl:size-4" />
+                      <span className="truncate">Catalog & Stock</span>
                     </span>
-                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-muted-foreground transition-colors group-hover:text-foreground xl:text-xs">
                       Manage <ArrowRight className="size-3" />
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                  <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+                    <span className="font-mono text-2xl font-black tracking-tight text-foreground xl:text-3xl">
                       {totalItems}
                     </span>
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="text-[10px] font-medium text-muted-foreground xl:text-xs">
                       total SKU items
                     </span>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-3 flex items-center justify-between border-t border-sidebar-border pt-2.5 text-[10px] text-muted-foreground xl:mt-5 xl:pt-3 xl:text-xs">
                   <span>Active Catalogs</span>
                   <span className="font-mono font-bold text-foreground">
                     {totalCollections} Collections
                   </span>
                 </div>
-              </div>
+              </button>
 
-              {/* Bento Card 2: Party Ledger & Books */}
-              <div
+              {/* Parties */}
+              <button
+                type="button"
                 onClick={() => navigate("/app/ledger")}
-                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+                className="group flex min-w-0 cursor-pointer flex-col justify-between rounded-xl border border-sidebar-border bg-card p-3 text-left transition-all hover:border-foreground/30 hover:shadow-sm xl:p-4 2xl:p-5"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Building2 className="size-4 text-foreground" /> Parties & Accounts
+                  <div className="mb-2 flex items-center justify-between gap-2 xl:mb-3">
+                    <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[11px]">
+                      <Building2 className="size-3.5 shrink-0 text-foreground xl:size-4" />
+                      <span className="truncate">Parties & Accounts</span>
                     </span>
-                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-muted-foreground transition-colors group-hover:text-foreground xl:text-xs">
                       Ledger <ArrowRight className="size-3" />
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                  <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+                    <span className="font-mono text-2xl font-black tracking-tight text-foreground xl:text-3xl">
                       {totalParties}
                     </span>
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="text-[10px] font-medium text-muted-foreground xl:text-xs">
                       registered parties
                     </span>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-3 flex items-center justify-between border-t border-sidebar-border pt-2.5 text-[10px] text-muted-foreground xl:mt-5 xl:pt-3 xl:text-xs">
                   <span>Ledger Status</span>
                   <span className="font-mono font-bold text-foreground">
-                    Active Ledger Records
+                    Active Records
                   </span>
                 </div>
-              </div>
+              </button>
 
-              {/* Bento Card 3: Store Cash Flow Analysis */}
-              <div className="flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card">
+              {/* Cashflow */}
+              <div className="flex min-w-0 flex-col justify-between rounded-xl border border-sidebar-border bg-card p-3 xl:p-4 2xl:p-5">
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <BarChart3 className="size-4 text-foreground" /> Cashflow Breakdown
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 xl:mb-3">
+                    <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[11px]">
+                      <BarChart3 className="size-3.5 shrink-0 text-foreground xl:size-4" />
+                      <span className="truncate">Cashflow Breakdown</span>
                     </span>
-                    <Badge variant="outline" className="text-[10px] font-mono border-sidebar-border bg-sidebar">
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 border-sidebar-border bg-sidebar font-mono text-[9px] xl:text-[10px]"
+                    >
                       Ledger Ratio
                     </Badge>
                   </div>
-
-                  <div className="flex flex-col gap-2.5 mt-2 font-mono text-xs">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Debit (Given Out)</span>
-                      <span className="font-bold text-foreground">₹{totalDebit.toLocaleString("en-IN")}</span>
+                  <div className="mt-2 flex flex-col gap-2 font-mono text-[10px] xl:text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-muted-foreground">
+                        Debit (Given Out)
+                      </span>
+                      <span className="shrink-0 font-bold text-foreground">
+                        ₹{totalDebit.toLocaleString("en-IN")}
+                      </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Credit (Received)</span>
-                      <span className="font-bold text-foreground">₹{totalCredit.toLocaleString("en-IN")}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-muted-foreground">
+                        Credit (Received)
+                      </span>
+                      <span className="shrink-0 font-bold text-foreground">
+                        ₹{totalCredit.toLocaleString("en-IN")}
+                      </span>
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Net Ledger Position</span>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-1 border-t border-sidebar-border pt-2.5 text-[10px] xl:mt-5 xl:pt-3 xl:text-xs">
+                  <span className="text-muted-foreground">Net Position</span>
                   <span className="font-mono font-bold text-foreground">
-                    {netBalance > 0 ? "Payable Balance" : netBalance < 0 ? "Receivable Balance" : "Fully Settled"}
+                    {netBalance > 0
+                      ? "Payable"
+                      : netBalance < 0
+                        ? "Receivable"
+                        : "Settled"}
                   </span>
                 </div>
               </div>
 
-              {/* Bento Card 4: Settled Receipt Archive */}
-              <div
+              {/* Receipts */}
+              <button
+                type="button"
                 onClick={() => navigate("/app/receipts")}
-                className="group flex flex-col justify-between p-5 rounded-xl border border-sidebar-border bg-card hover:border-foreground/30 hover:shadow-sm transition-all cursor-pointer"
+                className="group flex min-w-0 cursor-pointer flex-col justify-between rounded-xl border border-sidebar-border bg-card p-3 text-left transition-all hover:border-foreground/30 hover:shadow-sm xl:p-4 2xl:p-5"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <ReceiptText className="size-4 text-foreground" /> Settled Receipts
+                  <div className="mb-2 flex items-center justify-between gap-2 xl:mb-3">
+                    <span className="flex min-w-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-muted-foreground xl:gap-1.5 xl:text-[11px]">
+                      <ReceiptText className="size-3.5 shrink-0 text-foreground xl:size-4" />
+                      <span className="truncate">Settled Receipts</span>
                     </span>
-                    <span className="text-xs font-semibold text-muted-foreground group-hover:text-foreground flex items-center gap-1 transition-colors">
+                    <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-muted-foreground transition-colors group-hover:text-foreground xl:text-xs">
                       Invoices <ArrowRight className="size-3" />
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="text-3xl font-mono font-black tracking-tight text-foreground">
+                  <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+                    <span className="font-mono text-2xl font-black tracking-tight text-foreground xl:text-3xl">
                       {totalReceipts}
                     </span>
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="text-[10px] font-medium text-muted-foreground xl:text-xs">
                       issued invoices
                     </span>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-3 border-t border-sidebar-border flex items-center justify-between text-xs text-muted-foreground">
+                <div className="mt-3 flex items-center justify-between border-t border-sidebar-border pt-2.5 text-[10px] text-muted-foreground xl:mt-5 xl:pt-3 xl:text-xs">
                   <span>Gross Invoice Total</span>
                   <span className="font-mono font-bold text-foreground">
                     ₹{totalReceiptsRevenue.toLocaleString("en-IN")}
                   </span>
                 </div>
-              </div>
+              </button>
 
-              {/* System Info Strip */}
-              <div className="sm:col-span-2 p-5 rounded-xl border border-sidebar-border bg-sidebar/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-lg bg-foreground text-background flex items-center justify-center font-black">
+              {/* System strip */}
+              <div className="flex flex-col justify-between gap-3 rounded-xl border border-sidebar-border bg-sidebar/50 p-3 md:col-span-2 md:flex-row md:items-center xl:gap-4 xl:p-4 2xl:p-5">
+                <div className="flex min-w-0 items-center gap-2.5 xl:gap-3">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background xl:size-9">
                     M
                   </div>
-                  <div>
-                    <span className="font-bold text-sm text-foreground block">
+                  <div className="min-w-0">
+                    <span className="block truncate text-xs font-bold text-foreground xl:text-sm">
                       {organizationName || "Mudir Enterprise Store"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      Agentic Store Suite • System Status: Operating & Healthy
+                    <span className="block truncate text-[10px] text-muted-foreground xl:text-xs">
+                      System Status: Operating & Healthy
                     </span>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono">
-                  <div className="flex flex-col sm:items-end">
-                    <span>Active Currency</span>
-                    <span className="font-bold text-foreground">INR (₹)</span>
+                <div className="flex shrink-0 items-center gap-4 font-mono text-[10px] text-muted-foreground xl:gap-6 xl:text-xs">
+                  <div className="flex flex-col md:items-end">
+                    <span>Currency</span>
+                    <span className="font-bold text-foreground">
+                      {userCurrency || "INR (₹)"}
+                    </span>
                   </div>
-                  <div className="flex flex-col sm:items-end">
-                    <span>Security & Mode</span>
-                    <span className="font-bold text-foreground">Local Sandboxed</span>
+                  <div className="flex flex-col md:items-end">
+                    <span>Mode</span>
+                    <span className="font-bold text-foreground">Local</span>
                   </div>
                 </div>
               </div>
             </div>
           </ScrollArea>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

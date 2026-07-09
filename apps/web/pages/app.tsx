@@ -4,6 +4,8 @@ import AppLayout from "./app-layout";
 import { authClient, signOut } from "@/lib/auth-client";
 import { clearLocalData, hasLocalData } from "@/lib/local-data";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DesktopOnlyGate } from "@/components/desktop-only-gate";
+import { useIsBelowLg } from "@/hooks/use-media-query";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   setUser,
@@ -26,6 +28,7 @@ import { downloadAppData, fetchSyncStatus } from "@/lib/api/sync";
 export default function ProtectedApp() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const isBelowLg = useIsBelowLg();
   const serverDataVerified = useAppSelector((s) => s.auth.serverDataVerified);
   const bootstrappedRef = useRef(false);
 
@@ -116,33 +119,34 @@ export default function ProtectedApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Below lg (1024px): hide app shell entirely — mobile app or laptop only
+  if (isBelowLg) {
+    return <DesktopOnlyGate />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen bg-background">
-        <div className="hidden w-64 border-r border-border p-4 md:block">
-          <Skeleton className="mb-6 h-8 w-3/4" />
-          <div className="space-y-3">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+        <div className="hidden w-52 border-r border-border p-3 xl:w-64 xl:p-4 lg:block">
+          <Skeleton className="mb-4 h-7 w-3/4" />
+          <div className="space-y-2.5">
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
+            <Skeleton className="h-9 w-full" />
           </div>
         </div>
 
-        <div className="flex-1 p-6 md:p-8">
-          <div className="mx-auto max-w-6xl space-y-6">
-            <Skeleton className="h-10 w-1/3" />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Skeleton className="h-28" />
-              <Skeleton className="h-28" />
-              <Skeleton className="h-28" />
-              <Skeleton className="h-28" />
+        <div className="flex-1 p-4 xl:p-6">
+          <div className="mx-auto max-w-6xl space-y-4">
+            <Skeleton className="h-8 w-1/3" />
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
             </div>
-            <Skeleton className="h-[320px]" />
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Skeleton className="h-48" />
-              <Skeleton className="h-48" />
-            </div>
+            <Skeleton className="h-[280px]" />
           </div>
         </div>
       </div>

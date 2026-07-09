@@ -1,12 +1,14 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-screen h-screen">
-      <SidebarProvider>
+    <div className="h-screen w-screen overflow-hidden">
+      <SidebarProvider className="!min-h-0 h-full">
         <AppSidebar />
-        {children}
+        <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+          {children}
+        </SidebarInset>
       </SidebarProvider>
     </div>
   );

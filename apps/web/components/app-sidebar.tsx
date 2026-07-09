@@ -87,7 +87,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   alt="Logo"
                   className="size-8 p-1 border rounded-lg shrink-0"
                 />
-                <span className="font-extrabold text-3xl group-data-[collapsible=icon]:hidden">
+                <span className="text-xl font-extrabold group-data-[collapsible=icon]:hidden xl:text-3xl">
                   Mudir.
                 </span>
               </div>
@@ -116,15 +116,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         render={<Link to={item.url} />}
                         isActive={location.pathname === item.url}
                         tooltip={item.title}
-                        className="px-4 py-6 flex items-center justify-between text-lg group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:justify-center data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground"
+                        className="flex items-center justify-between px-3 py-4 text-sm group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center data-active:bg-primary data-active:text-primary-foreground data-active:hover:bg-primary/80 data-active:hover:text-primary-foreground xl:px-4 xl:py-5 xl:text-base"
                       >
                         <div className="flex items-center gap-2">
-                          {Icon && <Icon className="size-6 shrink-0" />}
+                          {Icon && <Icon className="size-4 shrink-0 xl:size-5" />}
                           <span className="group-data-[collapsible=icon]:hidden">
                             {item.title}
                           </span>
                         </div>
-                        <ChevronRight className="size-6 shrink-0 group-data-[collapsible=icon]:hidden" />
+                        <ChevronRight className="size-4 shrink-0 group-data-[collapsible=icon]:hidden xl:size-5" />
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
@@ -140,15 +140,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               onClick={() => toggleSidebar()}
               tooltip={state === "expanded" ? "Close sidebar" : "Open sidebar"}
-              className="flex items-center justify-between group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:justify-center cursor-pointer"
+              className="flex cursor-pointer items-center justify-between group-data-[collapsible=icon]:!size-9 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:justify-center"
             >
               <div className="flex items-center gap-2">
-                <PanelLeftIcon className="size-6 shrink-0" />
-                <span className="group-data-[collapsible=icon]:hidden">
+                <PanelLeftIcon className="size-4 shrink-0 xl:size-5" />
+                <span className="text-sm group-data-[collapsible=icon]:hidden xl:text-base">
                   {state === "expanded" ? "Close" : "Open"}
                 </span>
               </div>
-              <ChevronRight className="size-6 shrink-0 group-data-[collapsible=icon]:hidden" />
+              <ChevronRight className="size-4 shrink-0 group-data-[collapsible=icon]:hidden xl:size-5" />
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
