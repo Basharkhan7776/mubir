@@ -13,7 +13,7 @@
     "build:android": "eas build -p android --profile production"
   },
   "dependencies": {
-    "@better-auth/expo": "^1.6.18",
+    "@better-auth/expo": "1.6.23",
     "@mudir/types": "workspace:*",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -42,7 +42,7 @@
     "@rn-primitives/toggle": "^1.2.0",
     "@rn-primitives/toggle-group": "^1.2.0",
     "@rn-primitives/tooltip": "^1.2.0",
-    "better-auth": "^1.6.18",
+    "better-auth": "1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "expo": "~56.0.12",

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
-import {
+import type {
   AppMeta,
   SchemaField,
   CollectionItem,
@@ -95,3 +95,4 @@ const DatabaseSchema = new Schema<IDatabase>(
 );
 
 export const Database: Model<IDatabase> = mongoose.models.Database || mongoose.model<IDatabase>('Database', DatabaseSchema);
+export type { DatabaseData };
