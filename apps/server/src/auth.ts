@@ -51,7 +51,12 @@ export const auth = betterAuth({
     'exp://**',
     'http://localhost:8081',
     'http://localhost:3000',
+    'http://127.0.0.1:3000',
     'https://apimudir.basharkhan.com',
+    'https://mudir.basharkhan.com',
+    'https://www.mudir.basharkhan.com',
+    'https://*.basharkhan.com',
+    'https://*.vercel.app',
     process.env.BETTER_AUTH_URL || 'http://localhost:3001',
     process.env.FRONTEND_URL || 'http://localhost:3000',
     // Only include local IPs in dev (getLocalIpOrigins uses http)
@@ -75,7 +80,8 @@ export const auth = betterAuth({
   // Recommended for production: ensure secure cookies
   advanced: {
     crossSubDomainCookies: {
-      enabled: false,
+      enabled: process.env.NODE_ENV === 'production',
+      domain: process.env.COOKIE_DOMAIN || ".basharkhan.com",
     },
   },
 });

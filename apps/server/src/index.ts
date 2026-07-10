@@ -27,12 +27,17 @@ const allowedOrigins = [
   'http://localhost:8080',
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'https://mudir.basharkhan.com',
+  'https://www.mudir.basharkhan.com',
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow mobile, curl, same-origin, etc.
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Allow any subdomain of basharkhan.com or vercel.app
+    if (origin && (/^https:\/\/([a-zA-Z0-9-]+\.)*basharkhan\.com$/.test(origin) || /^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$/.test(origin))) {
+      return callback(null, true);
+    }
     // Dev helper: allow any localhost (ports 3000, 8080, etc.)
     if (process.env.NODE_ENV !== 'production' && origin && /localhost(:\d+)?$/.test(origin)) {
       return callback(null, true);
