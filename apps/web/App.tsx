@@ -12,12 +12,13 @@ import Ledger from "./pages/ledger";
 import Receipt from "./pages/receipt";
 import ProtectedApp from "./pages/app";
 import DashboardOverview from "./pages/dashboard-overview";
+import NotFound from "./pages/not-found";
 
 const App: React.FC = () => {
   return (
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Home />} />
@@ -26,7 +27,9 @@ const App: React.FC = () => {
                 <Route path="inventory" element={<Inventory />} />
                 <Route path="ledger" element={<Ledger />} />
                 <Route path="receipts" element={<Receipt />} />
+                <Route path="*" element={<NotFound />} />
               </Route>
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </ThemeProvider>
