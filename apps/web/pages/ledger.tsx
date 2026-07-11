@@ -220,11 +220,11 @@ export default function Ledger() {
       </div>
 
       {/* Right Pane: Party Ledger & Transactions */}
-      <div className="flex h-full min-w-0 flex-1 flex-col gap-4 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-4 shadow-sm xl:gap-6 xl:p-6">
+      <div className="flex h-full min-w-0 flex-1 flex-col gap-4 overflow-hidden rounded-lg border border-sidebar-border bg-sidebar p-4 shadow-sm xl:gap-6 xl:p-6 min-h-0">
         {activeEntry ? (
           <>
             {/* Top Party Profile Banner */}
-            <div className="flex flex-col justify-between gap-3 border-b border-sidebar-border pb-3 sm:flex-row sm:items-center xl:gap-4 xl:pb-4">
+            <div className="flex flex-col justify-between gap-3 border-b border-sidebar-border pb-3 sm:flex-row sm:items-center xl:gap-4 xl:pb-4 shrink-0">
               <div className="flex w-full items-center justify-between gap-3 xl:gap-4">
                 <div className="flex flex-col gap-0.5 xl:gap-1">
                   <div className="flex items-center gap-2 xl:gap-2.5">
@@ -276,7 +276,7 @@ export default function Ledger() {
             </div>
 
             {/* Metric Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
               <Card className="rounded-lg border border-sidebar-border bg-background shadow-xs">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
@@ -339,7 +339,7 @@ export default function Ledger() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center justify-between gap-3 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-2 shrink-0">
               <div className="flex items-center gap-1.5 bg-background p-1 rounded-lg border border-sidebar-border">
                 {(["ALL", "DEBIT", "CREDIT"] as const).map((type) => (
                   <Button
@@ -365,7 +365,7 @@ export default function Ledger() {
             </div>
 
             {/* Transactions Table */}
-            <ScrollArea className="flex-1 border border-sidebar-border rounded-lg bg-background shadow-xs">
+            <ScrollArea className="flex-1 min-h-0 border border-sidebar-border rounded-lg bg-background shadow-xs">
               <Table>
                 <TableHeader className="bg-muted sticky top-0 z-10">
                   <TableRow className="border-sidebar-border">
@@ -378,7 +378,7 @@ export default function Ledger() {
                     <TableHead className="w-[50%] text-foreground font-bold">
                       Remark / Description
                     </TableHead>
-                    <TableHead className="w-[20%] text-right text-foreground font-bold">
+                    <TableHead className="w-[20%] text-right text-foreground font-bold pr-8">
                       Amount
                     </TableHead>
                   </TableRow>
@@ -433,7 +433,7 @@ export default function Ledger() {
                             {t.remark || "No remark provided"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right pr-8">
                           <span className="font-mono font-extrabold text-base text-foreground">
                             {isDebit ? "-" : "+"} ₹
                             {Number(t.amount).toLocaleString("en-IN")}
